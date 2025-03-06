@@ -3,7 +3,8 @@
 from functools import partial
 from typing import Optional
 
-import torch
+import jax
+import jax.numpy as jnp
 
 __all__ = [
     "normalise_surf_var",
@@ -14,11 +15,11 @@ __all__ = [
 
 
 def normalise_surf_var(
-    x: torch.Tensor,
+    x: jax.Array,
     name: str,
     stats: Optional[dict[str, tuple[float, float]]] = None,
     unnormalise: bool = False,
-) -> torch.Tensor:
+) -> jax.Array:
     """Normalise a surface-level variable."""
     if stats and name in stats:
         location, scale = stats[name]
@@ -32,24 +33,24 @@ def normalise_surf_var(
 
 
 def normalise_atmos_var(
-    x: torch.Tensor,
+    x: jax.Array,
     name: str,
     atmos_levels: tuple[int | float, ...],
     unnormalise: bool = False,
-) -> torch.Tensor:
+) -> jax.Array:
     """Normalise an atmospheric variable."""
-    level_locations: list[int | float] = []
-    level_scales: list[int | float] = []
-    for level in atmos_levels:
-        level_locations.append(locations[f"{name}_{level}"])
-        level_scales.append(scales[f"{name}_{level}"])
-    location = torch.tensor(level_locations, dtype=x.dtype, device=x.device)
-    scale = torch.tensor(level_scales, dtype=x.dtype, device=x.device)
+    level_locations = [locations[f"{name}_{level}"] for level in atmos_levels]
+    level_scales = [scales[f"{name}_{level}"] for level in atmos_levels]
+    location = jnp.array(level_locations, dtype=x.dtype)
+    scale = jnp.array(level_scales, dtype=x.dtype)
+
+    location = jnp.expand_dims(location, axis=(-2, -1))
+    scale = jnp.expand_dims(scale, axis=(-2, -1))
 
     if unnormalise:
-        return x * scale[..., None, None] + location[..., None, None]
+        return x * scale + location
     else:
-        return (x - location[..., None, None]) / scale[..., None, None]
+        return (x - location) / scale
 
 
 unnormalise_surf_var = partial(normalise_surf_var, unnormalise=True)

@@ -4,9 +4,9 @@ import pickle
 from datetime import datetime
 from typing import Generator, TypedDict
 
+import jax.numpy as jnp
 import numpy as np
 import pytest
-import torch
 from huggingface_hub import hf_hub_download
 
 from aurora import Batch, Metadata
@@ -62,12 +62,12 @@ def test_input_output() -> Generator[tuple[Batch, SavedBatch], None, None]:
 
     # Construct a proper batch from the test input.
     batch = Batch(
-        surf_vars={k: torch.from_numpy(v) for k, v in test_input["surf_vars"].items()},
-        static_vars={k: torch.from_numpy(v) for k, v in static_vars.items()},
-        atmos_vars={k: torch.from_numpy(v) for k, v in test_input["atmos_vars"].items()},
+        surf_vars={k: jnp.array(v) for k, v in test_input["surf_vars"].items()},
+        static_vars={k: jnp.array(v) for k, v in static_vars.items()},
+        atmos_vars={k: jnp.array(v) for k, v in test_input["atmos_vars"].items()},
         metadata=Metadata(
-            lat=torch.from_numpy(test_input["metadata"]["lat"]),
-            lon=torch.from_numpy(test_input["metadata"]["lon"]),
+            lat=jnp.array(test_input["metadata"]["lat"]),
+            lon=jnp.array(test_input["metadata"]["lon"]),
             atmos_levels=tuple(test_input["metadata"]["atmos_levels"]),
             time=tuple(test_input["metadata"]["time"]),
         ),

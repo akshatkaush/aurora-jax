@@ -16,6 +16,7 @@ def test_interpolation(test_input_output: tuple[Batch, SavedBatch]) -> None:
     batch_regridded = batch.regrid(0.45)
     batch_regridded = batch_regridded.crop(4)  # Regridding added the south pole. Remove it again.
 
+    # ipdb.set_trace()
     for k in batch.surf_vars:
         np.testing.assert_allclose(
             batch.surf_vars[k],

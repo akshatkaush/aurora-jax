@@ -6,8 +6,10 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, List
 
+import jax
+import jax.numpy as jnp
 import numpy as np
-import torch
+from jax import device_put
 from scipy.interpolate import RegularGridInterpolator as RGI
 
 from aurora.normalisation import (
@@ -36,30 +38,30 @@ class Metadata:
             separate LoRA for every roll-out step. Generally, you are safe to ignore this field.
     """
 
-    lat: torch.Tensor
-    lon: torch.Tensor
+    lat: jnp.ndarray
+    lon: jnp.ndarray
     time: tuple[datetime, ...]
     atmos_levels: tuple[int | float, ...]
     rollout_step: int = 0
 
     def __post_init__(self):
-        if not (torch.all(self.lat <= 90) and torch.all(self.lat >= -90)):
+        if not (jnp.all(self.lat <= 90) and jnp.all(self.lat >= -90)):
             raise ValueError("Latitudes must be in the range [-90, 90].")
-        if not (torch.all(self.lon >= 0) and torch.all(self.lon < 360)):
+        if not (jnp.all(self.lon >= 0) and jnp.all(self.lon < 360)):
             raise ValueError("Longitudes must be in the range [0, 360).")
 
         # Validate vector-valued latitudes and longitudes:
-        if self.lat.dim() == self.lon.dim() == 1:
-            if not torch.all(self.lat[1:] - self.lat[:-1] < 0):
+        if self.lat.ndim == self.lon.ndim == 1:
+            if not jnp.all(self.lat[1:] - self.lat[:-1] < 0):
                 raise ValueError("Latitudes must be strictly decreasing.")
-            if not torch.all(self.lon[1:] - self.lon[:-1] > 0):
+            if not jnp.all(self.lon[1:] - self.lon[:-1] > 0):
                 raise ValueError("Longitudes must be strictly increasing.")
 
         # Validate matrix-valued latitudes and longitudes:
-        elif self.lat.dim() == self.lon.dim() == 2:
-            if not torch.all(self.lat[1:, :] - self.lat[:-1, :]):
+        elif self.lat.ndim == self.lon.ndim == 2:
+            if not jnp.all(self.lat[1:, :] - self.lat[:-1, :]):
                 raise ValueError("Latitudes must be strictly decreasing along every column.")
-            if not torch.all(self.lon[:, 1:] - self.lon[:, :-1] > 0):
+            if not jnp.all(self.lon[:, 1:] - self.lon[:, :-1] > 0):
                 raise ValueError("Longitudes must be strictly increasing along every row.")
 
         else:
@@ -81,9 +83,9 @@ class Batch:
         metadata (:class:`Metadata`): Metadata associated to this batch.
     """
 
-    surf_vars: dict[str, torch.Tensor]
-    static_vars: dict[str, torch.Tensor]
-    atmos_vars: dict[str, torch.Tensor]
+    surf_vars: dict[str, jnp.ndarray]
+    static_vars: dict[str, jnp.ndarray]
+    atmos_vars: dict[str, jnp.ndarray]
     metadata: Metadata
 
     @property
@@ -167,7 +169,7 @@ class Batch:
                 f"but there are {h % patch_size} too many."
             )
 
-    def _fmap(self, f: Callable[[torch.Tensor], torch.Tensor]) -> "Batch":
+    def _fmap(self, f: Callable[[jnp.ndarray], jnp.ndarray]) -> "Batch":
         return Batch(
             surf_vars={k: f(v) for k, v in self.surf_vars.items()},
             static_vars={k: f(v) for k, v in self.static_vars.items()},
@@ -181,13 +183,15 @@ class Batch:
             ),
         )
 
-    def to(self, device: str | torch.device) -> "Batch":
+    def to(self, device: str) -> "Batch":
         """Move the batch to another device."""
-        return self._fmap(lambda x: x.to(device))
+        # Note: JAX handles device placement differently
+        # You might want to use jax.device_put() instead
+        return self._fmap(lambda x: device_put(x, device))
 
-    def type(self, t: type) -> "Batch":
-        """Convert everything to type `t`."""
-        return self._fmap(lambda x: x.type(t))
+    def type(self, dtype) -> "Batch":
+        """Convert everything to type `dtype`."""
+        return self._fmap(lambda x: x.astype(dtype))
 
     def regrid(self, res: float) -> "Batch":
         """Regrid the batch to a `res` degrees resolution.
@@ -198,8 +202,8 @@ class Batch:
         """
 
         shape = (round(180 / res) + 1, round(360 / res))
-        lat_new = torch.from_numpy(np.linspace(90, -90, shape[0]))
-        lon_new = torch.from_numpy(np.linspace(0, 360, shape[1], endpoint=False))
+        lat_new = jnp.linspace(90, -90, shape[0])
+        lon_new = jnp.linspace(0, 360, shape[1], endpoint=False)
         interpolate_res = partial(
             interpolate,
             lat=self.metadata.lat,
@@ -279,12 +283,12 @@ class Batch:
                 atmos_vars.append(k.removeprefix("atmos_"))
 
         return Batch(
-            surf_vars={k: torch.from_numpy(ds[f"surf_{k}"].values) for k in surf_vars},
-            static_vars={k: torch.from_numpy(ds[f"static_{k}"].values) for k in static_vars},
-            atmos_vars={k: torch.from_numpy(ds[f"atmos_{k}"].values) for k in atmos_vars},
+            surf_vars={k: jnp.array(ds[f"surf_{k}"].values) for k in surf_vars},
+            static_vars={k: jnp.array(ds[f"static_{k}"].values) for k in static_vars},
+            atmos_vars={k: jnp.array(ds[f"atmos_{k}"].values) for k in atmos_vars},
             metadata=Metadata(
-                lat=torch.from_numpy(ds.latitude.values),
-                lon=torch.from_numpy(ds.longitude.values),
+                lat=jnp.array(ds.latitude.values),
+                lon=jnp.array(ds.longitude.values),
                 time=tuple(ds.time.values.astype("datetime64[s]").tolist()),
                 atmos_levels=tuple(ds.level.values),
                 rollout_step=int(ds.rollout_step.values),
@@ -292,29 +296,34 @@ class Batch:
         )
 
 
-def _np(x: torch.Tensor) -> np.ndarray:
-    return x.detach().cpu().numpy()
+def _np(x: jnp.ndarray) -> np.ndarray:
+    return jax.device_get(x)
 
 
 def interpolate(
-    v: torch.Tensor,
-    lat: torch.Tensor,
-    lon: torch.Tensor,
-    lat_new: torch.Tensor,
-    lon_new: torch.Tensor,
-) -> torch.Tensor:
+    v: jnp.ndarray,
+    lat: jnp.ndarray,
+    lon: jnp.ndarray,
+    lat_new: jnp.ndarray,
+    lon_new: jnp.ndarray,
+) -> jnp.ndarray:
     """Interpolate a variable `v` with latitudes `lat` and longitudes `lon` to new latitudes
     `lat_new` and new longitudes `lon_new`."""
     # Perform the interpolation in double precision.
-    return torch.from_numpy(
-        interpolate_numpy(
-            v.double().numpy(),
-            lat.double().numpy(),
-            lon.double().numpy(),
-            lat_new.double().numpy(),
-            lon_new.double().numpy(),
-        )
-    ).float()
+    v_np = np.asarray(v.astype(jnp.float32))
+    lat_np = np.asarray(lat.astype(jnp.float32))
+    lon_np = np.asarray(lon.astype(jnp.float32))
+    lat_new_np = np.asarray(lat_new.astype(jnp.float32))
+    lon_new_np = np.asarray(lon_new.astype(jnp.float32))
+
+    interpolated = interpolate_numpy(
+        v_np,
+        lat_np,
+        lon_np,
+        lat_new_np,
+        lon_new_np,
+    )
+    return jnp.array(interpolated).astype(jnp.float32)
 
 
 def interpolate_numpy(

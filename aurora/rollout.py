@@ -3,7 +3,7 @@
 import dataclasses
 from typing import Generator
 
-import torch
+import jax.numpy as jnp
 
 from aurora.batch import Batch
 from aurora.model.aurora import Aurora
@@ -33,16 +33,15 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
         pred = model.forward(batch)
 
         yield pred
-
-        # Add the appropriate history so the model can be run on the prediction.
         batch = dataclasses.replace(
+            # Add the appropriate history so the model can be run on the prediction.
             pred,
             surf_vars={
-                k: torch.cat([batch.surf_vars[k][:, 1:], v], dim=1)
+                k: jnp.concatenate([batch.surf_vars[k][:, 1:], v], axis=1)
                 for k, v in pred.surf_vars.items()
             },
             atmos_vars={
-                k: torch.cat([batch.atmos_vars[k][:, 1:], v], dim=1)
+                k: jnp.concatenate([batch.atmos_vars[k][:, 1:], v], axis=1)
                 for k, v in pred.atmos_vars.items()
             },
         )
