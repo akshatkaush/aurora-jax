@@ -1,9 +1,11 @@
+"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
+
 from pathlib import Path
 
 import cdsapi
 
 # Data will be downloaded here.
-download_path = Path("./datasetNew")
+download_path = Path("./dataset")
 
 c = cdsapi.Client()
 

@@ -7,6 +7,7 @@ from datetime import timedelta
 from functools import partial
 from typing import Optional
 
+import jax.numpy as jnp
 import torch
 from huggingface_hub import hf_hub_download
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
@@ -188,7 +189,7 @@ class Aurora(torch.nn.Module):
         """
         # Get the first parameter. We'll derive the data type and device from this parameter.
         p = next(self.parameters())
-        batch = batch.type(p.dtype)
+        # batch = batch.type(p.dtype)
         batch = batch.normalise(surf_stats=self.surf_stats)
         batch = batch.crop(patch_size=self.patch_size)
         batch = batch.to(p.device)
@@ -204,7 +205,10 @@ class Aurora(torch.nn.Module):
         B, T = next(iter(batch.surf_vars.values())).shape[:2]
         batch = dataclasses.replace(
             batch,
-            static_vars={k: v[None, None].repeat(B, T, 1, 1) for k, v in batch.static_vars.items()},
+            static_vars={
+                k: jnp.tile(jnp.expand_dims(v, (0, 1)), (B, T, 1, 1))
+                for k, v in batch.static_vars.items()
+            },
         )
 
         x = self.encoder(
@@ -335,7 +339,7 @@ class Aurora(torch.nn.Module):
                 f"into model with `max_history_size` {self.max_history_size}."
             )
 
-        self.load_state_dict(d, strict=strict)
+        self.load_state_dict(d, strict=False)
 
     def adapt_checkpoint_max_history_size(self, checkpoint: dict[str, torch.Tensor]) -> None:
         """Adapt a checkpoint with smaller `max_history_size` to a model with a larger

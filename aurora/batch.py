@@ -185,9 +185,8 @@ class Batch:
 
     def to(self, device: str) -> "Batch":
         """Move the batch to another device."""
-        # Note: JAX handles device placement differently
-        # You might want to use jax.device_put() instead
-        return self._fmap(lambda x: device_put(x, device))
+        device_force = jax.devices("gpu")[0] if jax.devices("gpu") else jax.devices("cpu")[0]
+        return self._fmap(lambda x: device_put(x, device_force))
 
     def type(self, dtype) -> "Batch":
         """Convert everything to type `dtype`."""

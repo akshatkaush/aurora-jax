@@ -25,7 +25,7 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
     # We will need to concatenate data, so ensure that everything is already of the right form.
     # Use an arbitary parameter of the model to derive the data type and device.
     p = next(model.parameters())
-    batch = batch.type(p.dtype)
+    # batch = batch.type(p.dtype)
     batch = batch.crop(model.patch_size)
     batch = batch.to(p.device)
 
