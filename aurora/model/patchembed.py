@@ -3,6 +3,7 @@
 import math
 from typing import Any, Optional, Tuple
 
+import flax
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
@@ -27,11 +28,14 @@ class LevelPatchEmbed(nn.Module):
         self.kernel_size = (self.history_size,) + to_2tuple(self.patch_size)
 
         # Initialize weights for each variable
-        self.weights = {}
-        for name in self.var_names:
-            # Shape (embed_dim, 1, history_size, patch_size, patch_size)
-            weight_shape = (self.embed_dim, 1) + self.kernel_size
-            self.weights[name] = self.param(f"weights_{name}", self._weight_init, weight_shape)
+        self.weights = flax.core.FrozenDict(
+            {
+                name: self.param(
+                    f"weights_{name}", self._weight_init, (self.embed_dim, 1) + self.kernel_size
+                )
+                for name in self.var_names
+            }
+        )
 
         # Initialize bias
         self.bias = self.param("bias", self._bias_init, (self.embed_dim,))
@@ -91,8 +95,15 @@ class LevelPatchEmbed(nn.Module):
         stride = (T,) + self.kernel_size[1:]
 
         # Perform 3D convolution
-        # In JAX/Flax, we'll use lax.conv_general_dilated for 3D convolution
-        proj = self._conv3d(x, weight, self.bias, stride)
+        proj = jax.lax.conv_general_dilated(
+            x,
+            weight,
+            window_strides=stride,
+            padding="VALID",
+            dimension_numbers=("NCTHW", "OITHW", "NCTHW"),
+        )
+
+        proj += jnp.reshape(self.bias, (1, -1, 1, 1, 1))
 
         if self.flatten:
             # Reshape to (B, D, L)
@@ -102,36 +113,3 @@ class LevelPatchEmbed(nn.Module):
 
         # Apply normalization
         return self.norm(proj)
-
-    def _conv3d(self, x, weight, bias, stride):
-        """Implement 3D convolution using JAX's lax.conv_general_dilated."""
-        # Rearrange dimensions to match JAX convention (NDHWC)
-        # From (B, V, T, H, W) to (B, T, H, W, V)
-        x = jnp.transpose(x, (0, 2, 3, 4, 1))
-
-        # Rearrange weight from (D, V, T, H, W) to (D, T, H, W, V)
-        weight = jnp.transpose(weight, (0, 2, 3, 4, 1))
-
-        # Define convolution dimensions
-        dimension_numbers = jax.lax.ConvDimensionNumbers(
-            lhs_spec=(0, 1, 2, 3, 4),  # (N, D, H, W, C)
-            rhs_spec=(0, 1, 2, 3, 4),  # (O, D, H, W, I)
-            out_spec=(0, 1, 2, 3, 4),  # (N, D, H, W, C)
-        )
-
-        # Perform convolution
-        result = jax.lax.conv_general_dilated(
-            lhs=x,
-            rhs=weight,
-            window_strides=stride,
-            padding="VALID",
-            dimension_numbers=dimension_numbers,
-        )
-
-        # Add bias
-        result = result + bias.reshape(1, 1, 1, 1, -1)
-
-        # Rearrange back to (B, D, 1, H/P, W/P)
-        result = jnp.transpose(result, (0, 4, 1, 2, 3))
-
-        return result

@@ -2,9 +2,9 @@
 
 import math
 
-import numpy as np
-import torch
-import torch.nn as nn
+import jax
+import jax.numpy as jnp
+from flax import linen as nn
 
 from aurora.area import area, radius_earth
 
@@ -28,27 +28,18 @@ class FourierExpansion(nn.Module):
             range.
     """
 
-    def __init__(self, lower: float, upper: float, assert_range: bool = True) -> None:
-        """Initialise.
+    lower: float
+    upper: float
+    assert_range: bool = True
 
-        Args:
-            lower (float): Lower wavelength.
-            upper (float): Upper wavelength.
-            assert_range (bool, optional): Assert that the encoded tensor is within the specified
-                wavelength range. Defaults to `True`.
-        """
-        super().__init__()
-        self.lower = lower
-        self.upper = upper
-        self.assert_range = assert_range
-
-    def forward(self, x: torch.Tensor, d: int) -> torch.Tensor:
+    @nn.compact
+    def __call__(self, x: jnp.ndarray, d: int) -> jnp.ndarray:
         """Perform the expansion.
 
         Adds a dimension of length `d` to the end of the shape of `x`.
 
         Args:
-            x (:class:`torch.Tensor`): Input to expand of shape `(..., n)`. All elements of `x` must
+            x (:class:`jnp.ndarray`): Input to expand of shape `(..., n)`. All elements of `x` must
                 lie within `[self.lower, self.upper]` if `self.assert_range` is `True`.
             d (int): Dimensionality. Must be a multiple of two.
 
@@ -58,17 +49,23 @@ class FourierExpansion(nn.Module):
             ValueError: If `d` is not a multiple of two.
 
         Returns:
-            torch.Tensor: Fourier series-style expansion of `x` of shape `(..., n, d)`.
+            jnp.ndarray: Fourier series-style expansion of `x` of shape `(..., n, d)`.
         """
         # If the input is not within the configured range, the embedding might be ambiguous!
-        in_range = torch.logical_and(self.lower <= x.abs(), torch.all(x.abs() <= self.upper))
-        in_range_or_zero = torch.all(
-            torch.logical_or(in_range, x == 0)
-        )  # Allow zeros to pass through.
-        if self.assert_range and not in_range_or_zero:
-            raise AssertionError(
-                f"The input tensor is not within the configured range"
-                f" `[{self.lower}, {self.upper}]`."
+        in_range = jnp.logical_and(self.lower <= jnp.abs(x), jnp.all(jnp.abs(x) <= self.upper))
+        in_range_or_zero = jnp.all(jnp.logical_or(in_range, x == 0))  # Allow zeros to pass through.
+
+        if self.assert_range:
+            # JAX doesn't support raising exceptions in a computation graph, so we use assert_shape
+            # as a pattern to conditionally continue execution
+            jax.lax.cond(
+                in_range_or_zero,
+                lambda _: None,
+                lambda _: jax.debug.print(
+                    f"The input tensor is not within the configured range "
+                    f"[{self.lower}, {self.upper}]."
+                ),
+                operand=None,
             )
 
         # We will use half of the dimensionality for `sin` and the other half for `cos`.
@@ -76,38 +73,32 @@ class FourierExpansion(nn.Module):
             raise ValueError("The dimensionality must be a multiple of two.")
 
         # Always perform the expansion with `float64`s to avoid numerical accuracy shenanigans.
-        x = x.double()
+        x = x.astype(jnp.float64)
 
-        wavelengths = torch.logspace(
+        wavelengths = jnp.logspace(
             math.log10(self.lower),
             math.log10(self.upper),
             d // 2,
             base=10,
-            device=x.device,
             dtype=x.dtype,
         )
-        prod = torch.einsum("...i,j->...ij", x, 2 * np.pi / wavelengths)
-        encoding = torch.cat((torch.sin(prod), torch.cos(prod)), dim=-1)
 
-        return encoding.float()  # Cast to `float32` to avoid incompatibilities.
+        # JAX equivalent of torch.einsum
+        prod = jnp.einsum("...i,j->...ij", x, 2 * jnp.pi / wavelengths)
+        encoding = jnp.concatenate((jnp.sin(prod), jnp.cos(prod)), axis=-1)
+
+        return encoding.astype(jnp.float32)
 
 
 # Determine a reasonable smallest value for the scale embedding by assuming a smallest delta in
 # latitudes and longitudes.
 _delta = 0.01  # Reasonable smallest delta in latitude and longitude
-_min_patch_area: float = area(
-    torch.tensor(
-        [
-            # The smallest patches will be at the poles. Just use the north pole.
-            [90, 0],
-            [90, _delta],
-            [90 - _delta, _delta],
-            [90 - _delta, 0],
-        ],
-        dtype=torch.float64,
-    )
-).item()
-_area_earth = 4 * np.pi * radius_earth * radius_earth
+coords = jnp.array(
+    [[90.0, 0.0], [90.0, _delta], [90.0 - _delta, _delta], [90.0 - _delta, 0.0]], dtype=jnp.float64
+)
+
+_min_patch_area: float = area(coords).item()
+_area_earth = 4 * jnp.pi * radius_earth * radius_earth
 
 pos_expansion = FourierExpansion(_delta, 720)
 """:class:`.FourierExpansion`: Fourier expansion for the encoding of latitudes and longitudes in

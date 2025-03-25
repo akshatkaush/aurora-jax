@@ -2,10 +2,11 @@
 
 from typing import TypeVar
 
+import jax
+import jax.numpy as jnp
 import torch
 from einops import rearrange
-from timm.models.vision_transformer import trunc_normal_
-from torch import nn
+from flax import linen as nn
 
 __all__ = [
     "unpatchify",
@@ -41,10 +42,16 @@ def unpatchify(x: torch.Tensor, V: int, H: int, W: int, P: int) -> torch.Tensor:
     return x
 
 
-def check_lat_lon_dtype(lat: torch.Tensor, lon: torch.Tensor) -> None:
-    """Assert that `lat` and `lon` are at least `float32`s."""
-    assert lat.dtype in [torch.float32, torch.float64], f"Latitude num. unstable: {lat.dtype}."
-    assert lon.dtype in [torch.float32, torch.float64], f"Longitude num. unstable: {lon.dtype}."
+def check_lat_lon_dtype(lat: jnp.ndarray, lon: jnp.ndarray) -> None:
+    """Assert that `lat` and `lon` are at least `float32` precision."""
+    assert lat.dtype in [
+        jnp.float32,
+        jnp.float64,
+    ], f"Latitudes need float32/64 for stability. Found: {lat.dtype}"
+    assert lon.dtype in [
+        jnp.float32,
+        jnp.float64,
+    ], f"Longitudes need float32/64 for stability. Found: {lon.dtype}"
 
 
 T = TypeVar("T", tuple[int, int], tuple[int, int, int])
@@ -71,20 +78,33 @@ def maybe_adjust_windows(window_size: T, shift_size: T, res: T) -> tuple[T, T]:
     return new_window_size, new_shift_size
 
 
+def trunc_normal(std: float = 0.02, mean: float = 0.0, lower: float = -2.0, upper: float = 2.0):
+    """Truncated normal initializer for JAX."""
+
+    def init(key, shape, dtype=jnp.float32):
+        # Generate truncated normal values
+        return mean + jax.random.truncated_normal(key, lower, upper, shape, dtype) * std
+
+    return init
+
+
 def init_weights(m: nn.Module):
-    """Initialise weights of a module with a truncated normal distribution.
+    """Initializes weights using derived keys from a base seed."""
+    # Create fresh key sequence for this initialization
+    base_key = jax.random.PRNGKey(0)
 
-    `nn.LayerNorm` is initialised with a `weight` of 1 and a `bias` of 0.
+    if isinstance(m, (nn.Dense, nn.Conv, nn.ConvTranspose)):
+        # Create unique key for this parameter shape
+        if hasattr(m, "kernel"):
+            shape_key = jax.random.fold_in(base_key, hash(tuple(m.kernel.shape)))
+            m.kernel = nn.initializers.truncated_normal(0.02)(shape_key, m.kernel.shape)
 
-    Args:
-        m (torch.nn.Module): Module.
-    """
-    if isinstance(m, (nn.Linear, nn.Conv2d, nn.Conv3d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
-        trunc_normal_(m.weight, std=0.02)
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
+        if hasattr(m, "bias") and m.bias is not None:
+            bias_key = jax.random.fold_in(base_key, hash(tuple(m.bias.shape)) + 1)
+            m.bias = nn.initializers.zeros(bias_key, m.bias.shape)
+
     elif isinstance(m, nn.LayerNorm):
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
-        if m.weight is not None:
-            nn.init.constant_(m.weight, 1.0)
+        if hasattr(m, "scale") and m.scale is not None:
+            m.scale = nn.initializers.ones(base_key, m.scale.shape)
+        if hasattr(m, "bias") and m.bias is not None:
+            m.bias = nn.initializers.zeros(base_key, m.bias.shape)

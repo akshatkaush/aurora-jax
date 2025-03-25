@@ -2,260 +2,216 @@
 
 from datetime import timedelta
 
-import torch
+import flax.linen as nn
+import jax.numpy as jnp
 from einops import rearrange
-from torch import nn
 
+from aurora.area import area, radius_earth
 from aurora.batch import Batch
-from aurora.model.fourier import (
-    absolute_time_expansion,
-    lead_time_expansion,
-    levels_expansion,
-    pos_expansion,
-    scale_expansion,
-)
+from aurora.model.fourier import FourierExpansion
 from aurora.model.patchembed import LevelPatchEmbed
 from aurora.model.perceiver import MLP, PerceiverResampler
 from aurora.model.posencoding import pos_scale_enc
 from aurora.model.util import (
     check_lat_lon_dtype,
-    init_weights,
 )
 
 __all__ = ["Perceiver3DEncoder"]
 
 
 class Perceiver3DEncoder(nn.Module):
-    """Multi-scale multi-source multi-variable encoder based on the Perceiver architecture."""
+    surf_vars_temp: tuple[str, ...]
+    static_vars: tuple[str, ...] | None
+    atmos_vars: tuple[str, ...]
+    patch_size: int = 4
+    latent_levels: int = 8
+    embed_dim: int = 1024
+    num_heads: int = 16
+    head_dim: int = 64
+    drop_rate: float = 0.1
+    depth: int = 2
+    mlp_ratio: float = 4.0
+    max_history_size: int = 2
+    perceiver_ln_eps: float = 1e-5
+    stabilise_level_agg: bool = False
 
-    def __init__(
-        self,
-        surf_vars: tuple[str, ...],
-        static_vars: tuple[str, ...] | None,
-        atmos_vars: tuple[str, ...],
-        patch_size: int = 4,
-        latent_levels: int = 8,
-        embed_dim: int = 1024,
-        num_heads: int = 16,
-        head_dim: int = 64,
-        drop_rate: float = 0.1,
-        depth: int = 2,
-        mlp_ratio: float = 4.0,
-        max_history_size: int = 2,
-        perceiver_ln_eps: float = 1e-5,
-        stabilise_level_agg: bool = False,
-    ) -> None:
-        """Initialise.
+    def setup(self):
+        if self.static_vars is not None:
+            self.surf_vars = self.surf_vars_temp + self.static_vars
+        else:
+            self.surf_vars = self.surf_vars_temp
 
-        Args:
-            surf_vars (tuple[str, ...]): All supported surface-level variables.
-            static_vars (tuple[str, ...], optional): All supported static variables.
-            atmos_vars (tuple[str, ...]): All supported atmospheric variables.
-            patch_size (int, optional): Patch size. Defaults to `4`.
-            latent_levels (int): Number of latent pressure levels. Defaults to `8`.
-            embed_dim (int, optional): Embedding dim. used in the aggregation blocks. Defaults
-                to `1024`.
-            num_heads (int, optional): Number of attention heads used in aggregation blocks.
-                Defaults to `16`.
-            head_dim (int, optional): Dimension of attention heads used in aggregation blocks.
-                Defaults to `64`.
-            drop_rate (float, optional): Drop out rate for input patches. Defaults to `0.1`.
-            depth (int, optional): Number of Perceiver cross-attention and feed-forward blocks.
-                Defaults to `2`.
-            mlp_ratio (float, optional): Ratio of hidden dimensionality to embedding dimensionality
-                for MLPs. Defaults to `4.0`.
-            max_history_size (int, optional): Maximum number of history steps to consider. Defaults
-                to `2`.
-            perceiver_ln_eps (float, optional): Epsilon value for layer normalisation in the
-                Perceiver. Defaults to 1e-5.
-            stabilise_level_agg (bool, optional): Stabilise the level aggregation by inserting an
-                additional layer normalisation. Defaults to `False`.
-        """
-        super().__init__()
+        self.atmos_latents = self.param(
+            "atmos_latents",
+            nn.initializers.truncated_normal(0.02),
+            (self.latent_levels - 1, self.embed_dim),
+        )
 
-        self.drop_rate = drop_rate
-        self.embed_dim = embed_dim
-        self.patch_size = patch_size
+        self.surf_level_encoding = self.param(
+            "surf_level_encoding", nn.initializers.truncated_normal(0.02), (self.embed_dim,)
+        )
 
-        # We treat the static variables as surface variables in the model.
-        surf_vars = surf_vars + static_vars if static_vars is not None else surf_vars
-
-        # Latent tokens
-        assert latent_levels > 1, "At least two latent levels are required."
-        self.latent_levels = latent_levels
-        # One latent level will be used by the surface level.
-        self.atmos_latents = nn.Parameter(torch.randn(latent_levels - 1, embed_dim))
+        # Surface components
+        self.surf_mlp = MLP(self.embed_dim, int(self.embed_dim * self.mlp_ratio), self.drop_rate)
+        self.surf_norm = nn.LayerNorm(epsilon=1e-5)
 
         # Learnable embedding to encode the surface level.
-        self.surf_level_encoding = nn.Parameter(torch.randn(embed_dim))
-        self.surf_mlp = MLP(embed_dim, int(embed_dim * mlp_ratio), dropout=drop_rate)
-        self.surf_norm = nn.LayerNorm(embed_dim)
-
-        # Position, scale, and time embeddings
-        self.pos_embed = nn.Linear(embed_dim, embed_dim)
-        self.scale_embed = nn.Linear(embed_dim, embed_dim)
-        self.lead_time_embed = nn.Linear(embed_dim, embed_dim)
-        self.absolute_time_embed = nn.Linear(embed_dim, embed_dim)
-        self.atmos_levels_embed = nn.Linear(embed_dim, embed_dim)
+        self.pos_embed = nn.Dense(self.embed_dim)
+        self.scale_embed = nn.Dense(self.embed_dim)
+        self.lead_time_embed = nn.Dense(self.embed_dim)
+        self.absolute_time_embed = nn.Dense(self.embed_dim)
+        self.atmos_levels_embed = nn.Dense(self.embed_dim)
 
         # Patch embeddings
-        assert max_history_size > 0, "At least one history step is required."
         self.surf_token_embeds = LevelPatchEmbed(
-            surf_vars,
-            patch_size,
-            embed_dim,
-            max_history_size,
+            self.surf_vars, self.patch_size, self.embed_dim, self.max_history_size
         )
+
         self.atmos_token_embeds = LevelPatchEmbed(
-            atmos_vars,
-            patch_size,
-            embed_dim,
-            max_history_size,
+            self.atmos_vars, self.patch_size, self.embed_dim, self.max_history_size
         )
 
         # Learnable pressure level aggregation
         self.level_agg = PerceiverResampler(
-            latent_dim=embed_dim,
-            context_dim=embed_dim,
-            depth=depth,
-            head_dim=head_dim,
-            num_heads=num_heads,
-            drop=drop_rate,
-            mlp_ratio=mlp_ratio,
-            ln_eps=perceiver_ln_eps,
-            ln_k_q=stabilise_level_agg,
+            latent_dim=self.embed_dim,
+            context_dim=self.embed_dim,
+            depth=self.depth,
+            head_dim=self.head_dim,
+            num_heads=self.num_heads,
+            drop=self.drop_rate,
+            mlp_ratio=self.mlp_ratio,
+            ln_eps=self.perceiver_ln_eps,
+            ln_k_q=self.stabilise_level_agg,
         )
+        _delta = 0.01
 
-        # Drop patches after encoding.
-        self.pos_drop = nn.Dropout(p=drop_rate)
+        coords = jnp.array(
+            [
+                # The smallest patches will be at the poles. Just use the north pole.
+                [90, 0],
+                [90, _delta],
+                [90 - _delta, _delta],
+                [90 - _delta, 0],
+            ],
+            dtype=jnp.float64,
+        )
+        _min_patch_area: float = area(coords).item()
+        _area_earth = 4 * jnp.pi * radius_earth * radius_earth
 
-        self.apply(init_weights)
+        self.levels_exp = FourierExpansion(_delta, 1e5)
+        self.pos_expansion = FourierExpansion(_delta, 720)
+        self.scale_expansion = FourierExpansion(_min_patch_area, _area_earth)
+        self.absolute_time_expansion = FourierExpansion(1, 24 * 365.25, assert_range=False)
+        self.lead_time_expansion = FourierExpansion(1 / 60, 24 * 7 * 3)
 
-        # Initialize the latents like in the Huggingface implementation of the Perceiver:
-        #
-        #   https://github.com/huggingface/transformers/blob/v4.36.1/src/transformers/models/perceiver/modeling_perceiver.py#L628
-        #
-        torch.nn.init.trunc_normal_(self.atmos_latents, std=0.02)
-        torch.nn.init.trunc_normal_(self.surf_level_encoding, std=0.02)
+        self.pos_drop = nn.Dropout(self.drop_rate)
+        # self.apply(init_weights)
 
-    def aggregate_levels(self, x: torch.Tensor) -> torch.Tensor:
-        """Aggregate pressure level information.
-
-        Args:
-            x (torch.Tensor): Tensor of shape `(B, C_A, L, D)` where `C_A` refers to the number
-                of pressure levels.
-
-        Returns:
-            torch.Tensor: Tensor of shape `(B, C, L, D)` where `C` is the number of
-                aggregated pressure levels.
-        """
+    def aggregate_levels(self, x: jnp.ndarray) -> jnp.ndarray:
         B, _, L, _ = x.shape
-        latents = self.atmos_latents.to(dtype=x.dtype)
-        latents = latents.unsqueeze(1).expand(B, -1, L, -1)  # (C_A, D) to (B, C_A, L, D)
+        C_A, D = self.atmos_latents.shape
+        latents = self.atmos_latents.astype(x.dtype)
+        latents = jnp.expand_dims(self.atmos_latents, 1)
+        latents = jnp.broadcast_to(latents, (B, C_A, L, D))  # (C_A, D) to (B, C_A, L, D)
 
-        x = torch.einsum("bcld->blcd", x)
-        x = x.flatten(0, 1)  # (B * L, C_A, D)
-        latents = torch.einsum("bcld->blcd", latents)
-        latents = latents.flatten(0, 1)  # (B * L, C_A, D)
+        x = jnp.einsum("bcld->blcd", x)
+        x = x.reshape(B * L, -1, self.embed_dim)
+        latents = jnp.einsum("bcld->blcd", latents).reshape(B * L, -1, self.embed_dim)
 
-        x = self.level_agg(latents, x)  # (B * L, C, D)
-        x = x.unflatten(dim=0, sizes=(B, L))  # (B, L, C, D)
-        x = torch.einsum("blcd->bcld", x)  # (B, C, L, D)
-        return x
+        x = self.level_agg(latents, x)
+        x = x.reshape(B, L, -1, self.embed_dim)
+        return jnp.einsum("blcd->bcld", x)
 
-    def forward(self, batch: Batch, lead_time: timedelta) -> torch.Tensor:
-        """Peform encoding.
-
-        Args:
-            batch (:class:`.Batch`): Batch to encode.
-            lead_time (timedelta): Lead time.
-
-        Returns:
-            torch.Tensor: Encoding of shape `(B, L, D)`.
-        """
+    def __call__(self, batch: Batch, lead_time: timedelta) -> jnp.ndarray:
+        # rng = jax.random.PRNGKey(0)
         surf_vars = tuple(batch.surf_vars.keys())
         static_vars = tuple(batch.static_vars.keys())
         atmos_vars = tuple(batch.atmos_vars.keys())
         atmos_levels = batch.metadata.atmos_levels
 
-        x_surf = torch.stack(tuple(batch.surf_vars.values()), dim=2)
-        x_static = torch.stack(tuple(batch.static_vars.values()), dim=2)
-        x_atmos = torch.stack(tuple(batch.atmos_vars.values()), dim=2)
+        x_surf = jnp.stack(tuple(batch.surf_vars.values()), axis=2)
+        # np.save('../tempData/arrayJax.npy', np.array(x_surf))
+        x_static = jnp.stack(tuple(batch.static_vars.values()), axis=2)
+        x_atmos = jnp.stack(tuple(batch.atmos_vars.values()), axis=2)
 
-        B, T, _, C, H, W = x_atmos.size()
+        B, T, _, C, H, W = x_atmos.shape
         assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
 
-        if static_vars is None:
+        if self.static_vars is None:
             assert x_static is None, "Static variables given, but not configured."
         else:
             assert x_static is not None, "Static variables not given."
-            x_static = x_static.expand((B, T, -1, -1, -1))
-            x_surf = torch.cat((x_surf, x_static), dim=2)  # (B, T, V_S + V_Static, H, W)
+            x_static = jnp.broadcast_to(x_static, (B, T) + x_static.shape[2:])
+            x_surf = jnp.concatenate((x_surf, x_static), axis=2)
             surf_vars = surf_vars + static_vars
 
         lat, lon = batch.metadata.lat, batch.metadata.lon
         check_lat_lon_dtype(lat, lon)
-        lat, lon = lat.to(dtype=torch.float32), lon.to(dtype=torch.float32)
+        lat, lon = lat.astype(jnp.float32), lon.astype(jnp.float32)
         assert lat.shape[0] == H and lon.shape[-1] == W
 
-        # Patch embed the surface level.
-        x_surf = rearrange(x_surf, "b t v h w -> b v t h w")
+        # Patch embed the surface level
+        x_surf = jnp.transpose(x_surf, (0, 2, 1, 3, 4))  # b t v h w -> b v t h w
         x_surf = self.surf_token_embeds(x_surf, surf_vars)  # (B, L, D)
-        dtype = x_surf.dtype  # When using mixed precision, we need to keep track of the dtype.
+        dtype = x_surf.dtype
 
-        # Patch embed the atmospheric levels.
-        x_atmos = rearrange(x_atmos, "b t v c h w -> (b c) v t h w")
+        x_atmos = rearrange(x_atmos, "b t v c h w -> (b c) v t h w")  # b t v c h w -> (b c) v t h w
         x_atmos = self.atmos_token_embeds(x_atmos, atmos_vars)
-        x_atmos = rearrange(x_atmos, "(b c) l d -> b c l d", b=B, c=C)
+        x_atmos = jnp.reshape(x_atmos, (B, C, -1, self.embed_dim))  # (b c) l d -> b c l d
 
-        # Add surface level encoding. This helps the model distinguish between surface and
-        # atmospheric levels.
-        x_surf = x_surf + self.surf_level_encoding[None, None, :].to(dtype=dtype)
-        # Since the surface level is not aggregated, we add a Perceiver-like MLP only.
+        # Add surface level encoding
+        x_surf = x_surf + jnp.expand_dims(jnp.expand_dims(self.surf_level_encoding, 0), 0).astype(
+            dtype
+        )
+        # Add Perceiver-like MLP for surface level
         x_surf = x_surf + self.surf_norm(self.surf_mlp(x_surf))
 
-        # Add atmospheric pressure encoding of shape (C_A, D) and subsequent embedding.
-        atmos_levels_tensor = torch.tensor(atmos_levels, device=x_atmos.device)
-        atmos_levels_encode = levels_expansion(atmos_levels_tensor, self.embed_dim).to(dtype=dtype)
-        atmos_levels_embed = self.atmos_levels_embed(atmos_levels_encode)[None, :, None, :]
+        # Add atmospheric pressure encoding
+        atmos_levels_tensor = jnp.array(atmos_levels, dtype=jnp.float32)
+        atmos_levels_encode = self.levels_exp(atmos_levels_tensor, self.embed_dim).astype(dtype)
+        atmos_levels_embed = self.atmos_levels_embed(atmos_levels_encode)
+        atmos_levels_embed = jnp.expand_dims(jnp.expand_dims(atmos_levels_embed, 0), 2)
         x_atmos = x_atmos + atmos_levels_embed  # (B, C_A, L, D)
 
         # Aggregate over pressure levels.
         x_atmos = self.aggregate_levels(x_atmos)  # (B, C_A, L, D) to (B, C, L, D)
 
-        # Concatenate the surface level with the amospheric levels.
-        x = torch.cat((x_surf.unsqueeze(1), x_atmos), dim=1)
+        # Concatenate the surface level with the atmospheric levels
+        x_surf_expanded = jnp.expand_dims(x_surf, 1)
+        x = jnp.concatenate((x_surf_expanded, x_atmos), axis=1)
 
-        # Add position and scale embeddings to the 3D tensor.
         pos_encode, scale_encode = pos_scale_enc(
             self.embed_dim,
             lat,
             lon,
             self.patch_size,
-            pos_expansion=pos_expansion,
-            scale_expansion=scale_expansion,
+            pos_expansion=self.pos_expansion,
+            scale_expansion=self.scale_expansion,
         )
-        # Encodings are (L, D).
-        pos_encode = self.pos_embed(pos_encode[None, None, :].to(dtype=dtype))
-        scale_encode = self.scale_embed(scale_encode[None, None, :].to(dtype=dtype))
+
+        pos_encode = self.pos_embed(
+            jnp.expand_dims(jnp.expand_dims(pos_encode, 0), 0).astype(dtype)
+        )
+        scale_encode = self.scale_embed(
+            jnp.expand_dims(jnp.expand_dims(scale_encode, 0), 0).astype(dtype)
+        )
         x = x + pos_encode + scale_encode
 
-        # Flatten the tokens.
-        x = x.reshape(B, -1, self.embed_dim)  # (B, C + 1, L, D) to (B, L', D)
+        x = jnp.reshape(x, (B, -1, self.embed_dim))
 
-        # Add lead time embedding.
+        # Add lead time embedding
         lead_hours = lead_time.total_seconds() / 3600
-        lead_times = lead_hours * torch.ones(B, dtype=dtype, device=x.device)
-        lead_time_encode = lead_time_expansion(lead_times, self.embed_dim).to(dtype=dtype)
+        lead_times = lead_hours * jnp.ones((B,), dtype=dtype)
+        lead_time_encode = self.lead_time_expansion(lead_times, self.embed_dim).astype(dtype)
         lead_time_emb = self.lead_time_embed(lead_time_encode)  # (B, D)
-        x = x + lead_time_emb.unsqueeze(1)  # (B, L', D) + (B, 1, D)
+        x = x + jnp.expand_dims(lead_time_emb, 1)  # (B, L', D) + (B, 1, D)
 
-        # Add absolute time embedding.
+        # Add absolute time embedding
         absolute_times_list = [t.timestamp() / 3600 for t in batch.metadata.time]  # Times in hours
-        absolute_times = torch.tensor(absolute_times_list, dtype=torch.float32, device=x.device)
-        absolute_time_encode = absolute_time_expansion(absolute_times, self.embed_dim)
-        absolute_time_embed = self.absolute_time_embed(absolute_time_encode.to(dtype=dtype))
-        x = x + absolute_time_embed.unsqueeze(1)  # (B, L, D) + (B, 1, D)
+        absolute_times = jnp.array(absolute_times_list, dtype=jnp.float32)
+        absolute_time_encode = self.absolute_time_expansion(absolute_times, self.embed_dim)
+        absolute_time_embed = self.absolute_time_embed(absolute_time_encode.astype(dtype))
+        x = x + jnp.expand_dims(absolute_time_embed, 1)  # (B, L, D) + (B, 1, D)
 
-        x = self.pos_drop(x)
+        x = self.pos_drop(x, deterministic=True)
         return x

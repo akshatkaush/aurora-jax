@@ -11,7 +11,9 @@ from aurora.model.aurora import Aurora
 __all__ = ["rollout"]
 
 
-def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, None]:
+def rollout(
+    model: Aurora, batch: Batch, steps: int, params, training: bool, rng
+) -> Generator[Batch, None, None]:
     """Perform a roll-out to make long-term predictions.
 
     Args:
@@ -24,13 +26,13 @@ def rollout(model: Aurora, batch: Batch, steps: int) -> Generator[Batch, None, N
     """
     # We will need to concatenate data, so ensure that everything is already of the right form.
     # Use an arbitary parameter of the model to derive the data type and device.
-    p = next(model.parameters())
+    # p = next(model.parameters())
     # batch = batch.type(p.dtype)
     batch = batch.crop(model.patch_size)
-    batch = batch.to(p.device)
+    # batch = batch.to(p.device)
 
     for _ in range(steps):
-        pred = model.forward(batch)
+        pred = model.apply({"params": params}, batch)
 
         yield pred
         batch = dataclasses.replace(

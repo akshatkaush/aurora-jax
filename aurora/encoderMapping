@@ -1,0 +1,89 @@
+Path: ['encoder']/['absolute_time_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['absolute_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['atmos_latents'], Shape: (3, 256), dtype: float32
+Path: ['encoder']/['atmos_levels_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['atmos_levels_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_q'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_t'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_u'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_v'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['lead_time_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['lead_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_kv']/['kernel'], Shape: (256, 512), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_out']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_q']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_2']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_2']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_3']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_3']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['pos_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['pos_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['scale_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['scale_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['surf_level_encoding'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
+Path: ['encoder']/['surf_norm']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_norm']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_10u'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_10v'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_2t'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_lsm'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_msl'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_slt'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
+-------------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------------
+Path: ['encoder']/['absolute_time_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['absolute_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['atmos_latents'], Shape: (3, 256), dtype: float32
+Path: ['encoder']/['atmos_levels_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['atmos_levels_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_q'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_t'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_u'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_v'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['atmos_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['lead_time_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['lead_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_kv']/['kernel'], Shape: (256, 512), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_out']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_0']/['to_q']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_2']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_2']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_3']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['level_agg']/['layers_0_3']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['pos_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['pos_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['scale_embed']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['scale_embed']/['kernel'], Shape: (256, 256), dtype: float32
+Path: ['encoder']/['surf_level_encoding'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_mlp']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
+Path: ['encoder']/['surf_norm']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_norm']/['scale'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['bias'], Shape: (256,), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_10u'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_10v'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_2t'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_lsm'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_msl'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_slt'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['encoder']/['surf_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32

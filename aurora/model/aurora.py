@@ -1,14 +1,15 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-import contextlib
 import dataclasses
 import warnings
 from datetime import timedelta
 from functools import partial
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
+import jax
 import jax.numpy as jnp
 import torch
+from flax import linen as nn
 from huggingface_hub import hf_hub_download
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -17,111 +18,47 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from aurora.batch import Batch
 from aurora.model.decoder import Perceiver3DDecoder
 from aurora.model.encoder import Perceiver3DEncoder
-from aurora.model.lora import LoRAMode
 from aurora.model.swin3d import BasicLayer3D, Swin3DTransformerBackbone
 
 __all__ = ["Aurora", "AuroraSmall", "AuroraHighRes"]
 
 
-class Aurora(torch.nn.Module):
+class Aurora(nn.Module):
     """The Aurora model.
 
     Defaults to to the 1.3 B parameter configuration.
     """
 
-    def __init__(
-        self,
-        surf_vars: tuple[str, ...] = ("2t", "10u", "10v", "msl"),
-        static_vars: tuple[str, ...] = ("lsm", "z", "slt"),
-        atmos_vars: tuple[str, ...] = ("z", "u", "v", "t", "q"),
-        window_size: tuple[int, int, int] = (2, 6, 12),
-        encoder_depths: tuple[int, ...] = (6, 10, 8),
-        encoder_num_heads: tuple[int, ...] = (8, 16, 32),
-        decoder_depths: tuple[int, ...] = (8, 10, 6),
-        decoder_num_heads: tuple[int, ...] = (32, 16, 8),
-        latent_levels: int = 4,
-        patch_size: int = 4,
-        embed_dim: int = 512,
-        num_heads: int = 16,
-        mlp_ratio: float = 4.0,
-        drop_path: float = 0.0,
-        drop_rate: float = 0.0,
-        enc_depth: int = 1,
-        dec_depth: int = 1,
-        dec_mlp_ratio: float = 2.0,
-        perceiver_ln_eps: float = 1e-5,
-        max_history_size: int = 2,
-        timestep: timedelta = timedelta(hours=6),
-        stabilise_level_agg: bool = False,
-        use_lora: bool = True,
-        lora_steps: int = 40,
-        lora_mode: LoRAMode = "single",
-        surf_stats: Optional[dict[str, tuple[float, float]]] = None,
-        autocast: bool = False,
-    ) -> None:
-        """Construct an instance of the model.
+    surf_vars: Tuple[str, ...] = ("2t", "10u", "10v", "msl")
+    static_vars: Tuple[str, ...] = ("lsm", "z", "slt")
+    atmos_vars: Tuple[str, ...] = ("z", "u", "v", "t", "q")
+    window_size: Tuple[int, int, int] = (2, 6, 12)
+    encoder_depths: Tuple[int, ...] = (6, 10, 8)
+    encoder_num_heads: Tuple[int, ...] = (8, 16, 32)
+    decoder_depths: Tuple[int, ...] = (8, 10, 6)
+    decoder_num_heads: Tuple[int, ...] = (32, 16, 8)
+    latent_levels: int = 4
+    patch_size: int = 4
+    embed_dim: int = 512
+    num_heads: int = 16
+    mlp_ratio: float = 4.0
+    drop_path: float = 0.0
+    drop_rate: float = 0.0
+    enc_depth: int = 1
+    dec_depth: int = 1
+    dec_mlp_ratio: float = 2.0
+    perceiver_ln_eps: float = 1e-5
+    max_history_size: int = 2
+    timestep: timedelta = timedelta(hours=6)
+    stabilise_level_agg: bool = False
+    use_lora: bool = True
+    lora_steps: int = 40
+    lora_mode: str = "single"
+    surf_stats_temp: Optional[Dict[str, Tuple[float, float]]] = None
+    autocast: bool = False
 
-        Args:
-            surf_vars (tuple[str, ...], optional): All surface-level variables supported by the
-                model.
-            static_vars (tuple[str, ...], optional): All static variables supported by the
-                model.
-            atmos_vars (tuple[str, ...], optional): All atmospheric variables supported by the
-                model.
-            window_size (tuple[int, int, int], optional): Vertical height, height, and width of the
-                window of the underlying Swin transformer.
-            encoder_depths (tuple[int, ...], optional): Number of blocks in each encoder layer.
-            encoder_num_heads (tuple[int, ...], optional): Number of attention heads in each encoder
-                layer. The dimensionality doubles after every layer. To keep the dimensionality of
-                every head constant, you want to double the number of heads after every layer. The
-                dimensionality of attention head of the first layer is determined by `embed_dim`
-                divided by the value here. For all cases except one, this is equal to `64`.
-            decoder_depths (tuple[int, ...], optional): Number of blocks in each decoder layer.
-                Generally, you want this to be the reversal of `encoder_depths`.
-            decoder_num_heads (tuple[int, ...], optional): Number of attention heads in each decoder
-                layer. Generally, you want this to be the reversal of `encoder_num_heads`.
-            latent_levels (int, optional): Number of latent pressure levels.
-            patch_size (int, optional): Patch size.
-            embed_dim (int, optional): Patch embedding dimension.
-            num_heads (int, optional): Number of attention heads in the aggregation and
-                deaggregation blocks. The dimensionality of these attention heads will be equal to
-                `embed_dim` divided by this value.
-            mlp_ratio (float, optional): Hidden dim. to embedding dim. ratio for MLPs.
-            drop_rate (float, optional): Drop-out rate.
-            drop_path (float, optional): Drop-path rate.
-            enc_depth (int, optional): Number of Perceiver blocks in the encoder.
-            dec_depth (int, optioanl): Number of Perceiver blocks in the decoder.
-            dec_mlp_ratio (float, optional): Hidden dim. to embedding dim. ratio for MLPs in the
-                decoder. The embedding dimensionality here is different, which is why this is a
-                separate parameter.
-            perceiver_ln_eps (float, optional): Epsilon in the perceiver layer norm. layers. Used
-                to stabilise the model.
-            max_history_size (int, optional): Maximum number of history steps. You can load
-                checkpoints with a smaller `max_history_size`, but you cannot load checkpoints
-                with a larger `max_history_size`.
-            timestep (timedelta, optional): Timestep of the model. Defaults to 6 hours.
-            stabilise_level_agg (bool, optional): Stabilise the level aggregation by inserting an
-                additional layer normalisation. Defaults to `False`.
-            use_lora (bool, optional): Use LoRA adaptation.
-            lora_steps (int, optional): Use different LoRA adaptation for the first so-many roll-out
-                steps.
-            lora_mode (str, optional): LoRA mode. `"single"` uses the same LoRA for all roll-out
-                steps, and `"all"` uses a different LoRA for every roll-out step. Defaults to
-                `"single"`.
-            surf_stats (dict[str, tuple[float, float]], optional): For these surface-level
-                variables, adjust the normalisation to the given tuple consisting of a new location
-                and scale.
-            autocast (bool, optional): Use `torch.autocast` to reduce memory usage. Defaults to
-                `False`.
-        """
-        super().__init__()
-        self.surf_vars = surf_vars
-        self.atmos_vars = atmos_vars
-        self.patch_size = patch_size
-        self.surf_stats = surf_stats or dict()
-        self.autocast = autocast
-        self.max_history_size = max_history_size
-        self.timestep = timestep
+    def setup(self):
+        self.surf_stats = self.surf_stats_temp or {}
 
         if self.surf_stats:
             warnings.warn(
@@ -132,53 +69,53 @@ class Aurora(torch.nn.Module):
             )
 
         self.encoder = Perceiver3DEncoder(
-            surf_vars=surf_vars,
-            static_vars=static_vars,
-            atmos_vars=atmos_vars,
-            patch_size=patch_size,
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            drop_rate=drop_rate,
-            mlp_ratio=mlp_ratio,
-            head_dim=embed_dim // num_heads,
-            depth=enc_depth,
-            latent_levels=latent_levels,
-            max_history_size=max_history_size,
-            perceiver_ln_eps=perceiver_ln_eps,
-            stabilise_level_agg=stabilise_level_agg,
+            surf_vars_temp=self.surf_vars,
+            static_vars=self.static_vars,
+            atmos_vars=self.atmos_vars,
+            patch_size=self.patch_size,
+            embed_dim=self.embed_dim,
+            num_heads=self.num_heads,
+            drop_rate=self.drop_rate,
+            mlp_ratio=self.mlp_ratio,
+            head_dim=self.embed_dim // self.num_heads,
+            depth=self.enc_depth,
+            latent_levels=self.latent_levels,
+            max_history_size=self.max_history_size,
+            perceiver_ln_eps=self.perceiver_ln_eps,
+            stabilise_level_agg=self.stabilise_level_agg,
         )
 
         self.backbone = Swin3DTransformerBackbone(
-            window_size=window_size,
-            encoder_depths=encoder_depths,
-            encoder_num_heads=encoder_num_heads,
-            decoder_depths=decoder_depths,
-            decoder_num_heads=decoder_num_heads,
-            embed_dim=embed_dim,
-            mlp_ratio=mlp_ratio,
-            drop_path_rate=drop_path,
-            drop_rate=drop_rate,
-            use_lora=use_lora,
-            lora_steps=lora_steps,
-            lora_mode=lora_mode,
+            window_size=self.window_size,
+            encoder_depths=self.encoder_depths,
+            encoder_num_heads=self.encoder_num_heads,
+            decoder_depths=self.decoder_depths,
+            decoder_num_heads=self.decoder_num_heads,
+            embed_dim=self.embed_dim,
+            mlp_ratio=self.mlp_ratio,
+            drop_path_rate=self.drop_path,
+            drop_rate=self.drop_rate,
+            use_lora=self.use_lora,
+            lora_steps=self.lora_steps,
+            lora_mode=self.lora_mode,
         )
 
         self.decoder = Perceiver3DDecoder(
-            surf_vars=surf_vars,
-            atmos_vars=atmos_vars,
-            patch_size=patch_size,
+            surf_vars=self.surf_vars,
+            atmos_vars=self.atmos_vars,
+            patch_size=self.patch_size,
             # Concatenation at the backbone end doubles the dim.
-            embed_dim=embed_dim * 2,
-            head_dim=embed_dim * 2 // num_heads,
-            num_heads=num_heads,
-            depth=dec_depth,
+            embed_dim=self.embed_dim * 2,
+            head_dim=self.embed_dim * 2 // self.num_heads,
+            num_heads=self.num_heads,
+            depth=self.dec_depth,
             # Because of the concatenation, high ratios are expensive.
             # We use a lower ratio here to keep the memory in check.
-            mlp_ratio=dec_mlp_ratio,
-            perceiver_ln_eps=perceiver_ln_eps,
+            mlp_ratio=self.dec_mlp_ratio,
+            perceiver_ln_eps=self.perceiver_ln_eps,
         )
 
-    def forward(self, batch: Batch) -> Batch:
+    def __call__(self, batch: Batch) -> Batch:
         """Forward pass.
 
         Args:
@@ -187,19 +124,16 @@ class Aurora(torch.nn.Module):
         Returns:
             :class:`Batch`: Prediction for the batch.
         """
-        # Get the first parameter. We'll derive the data type and device from this parameter.
-        p = next(self.parameters())
         # batch = batch.type(p.dtype)
         batch = batch.normalise(surf_stats=self.surf_stats)
         batch = batch.crop(patch_size=self.patch_size)
-        batch = batch.to(p.device)
 
         H, W = batch.spatial_shape
-        patch_res = (
-            self.encoder.latent_levels,
-            H // self.encoder.patch_size,
-            W // self.encoder.patch_size,
-        )
+        # patch_res = (
+        #     self.encoder.latent_levels,
+        #     H // self.encoder.patch_size,
+        #     W // self.encoder.patch_size,
+        # )
 
         # Insert batch and history dimension for static variables.
         B, T = next(iter(batch.surf_vars.values())).shape[:2]
@@ -211,42 +145,63 @@ class Aurora(torch.nn.Module):
             },
         )
 
+        # numpy_array = np.array(batch)
+
+        # Save the NumPy array to a file
+        # np.save('../tempData/arrayJax.npy', numpy_array)
+
         x = self.encoder(
             batch,
             lead_time=self.timestep,
         )
-        with torch.autocast(device_type="cuda") if self.autocast else contextlib.nullcontext():
-            x = self.backbone(
-                x,
-                lead_time=self.timestep,
-                patch_res=patch_res,
-                rollout_step=batch.metadata.rollout_step,
-            )
-        pred = self.decoder(
-            x,
-            batch,
-            lead_time=self.timestep,
-            patch_res=patch_res,
-        )
 
-        # Remove batch and history dimension from static variables.
-        pred = dataclasses.replace(
-            pred,
-            static_vars={k: v[0, 0] for k, v in batch.static_vars.items()},
-        )
+        # with torch.autocast(device_type="cuda") if self.autocast else contextlib.nullcontext():
+        #     x = self.backbone(
+        #         x,
+        #         lead_time=self.timestep,
+        #         patch_res=patch_res,
+        #         rollout_step=batch.metadata.rollout_step,
+        #     )
+        # pred = self.decoder(
+        #     x,
+        #     batch,
+        #     lead_time=self.timestep,
+        #     patch_res=patch_res,
+        # )
 
-        # Insert history dimension in prediction. The time should already be right.
-        pred = dataclasses.replace(
-            pred,
-            surf_vars={k: v[:, None] for k, v in pred.surf_vars.items()},
-            atmos_vars={k: v[:, None] for k, v in pred.atmos_vars.items()},
-        )
+        # # Remove batch and history dimension from static variables.
+        # pred = dataclasses.replace(
+        #     pred,
+        #     static_vars={k: v[0, 0] for k, v in batch.static_vars.items()},
+        # )
 
-        pred = pred.unnormalise(surf_stats=self.surf_stats)
+        # # Insert history dimension in prediction. The time should already be right.
+        # pred = dataclasses.replace(
+        #     pred,
+        #     surf_vars={k: v[:, None] for k, v in pred.surf_vars.items()},
+        #     atmos_vars={k: v[:, None] for k, v in pred.atmos_vars.items()},
+        # )
 
-        return pred
+        # pred = pred.unnormalise(surf_stats=self.surf_stats)
+        # print(f"Mean: {jnp.mean(x)}")
+        # print(f"Standard Deviation: {jnp.std(x)}")
+        # print(f"Variance: {jnp.var(x)}")
+        # print('------------------------------------------------------------------')
+        # torch_tensor = torch.load('tensor.pt').numpy()
+        # x = np.array(x)
+        # differences = np.abs(torch_tensor - x)
+        # print(f"Mean: {np.mean(differences)}")
+        # print(f"Standard Deviation: {np.std(differences)}")
+        # max_difference = np.max(differences)
+        # min_difference = np.min(differences)
 
-    def load_checkpoint(self, repo: str, name: str, strict: bool = True) -> None:
+        # print("Maximum difference:", max_difference)
+        # print("Minimum difference:", min_difference)
+        # print(differences)
+        return x
+        # return pred
+
+    def load_checkpoint(self, repo: str, name: str, strict: bool = True):
         """Load a checkpoint from HuggingFace.
 
         Args:
@@ -257,9 +212,10 @@ class Aurora(torch.nn.Module):
                 parameters in the checkpoint. Defaults to `True`.
         """
         path = hf_hub_download(repo_id=repo, filename=name)
-        self.load_checkpoint_local(path, strict=strict)
+        jax_params = self.load_checkpoint_local(path, strict=strict)
+        return jax_params
 
-    def load_checkpoint_local(self, path: str, strict: bool = True) -> None:
+    def load_checkpoint_local(self, path: str, strict: bool = True):
         """Load a checkpoint directly from a file.
 
         Args:
@@ -268,9 +224,14 @@ class Aurora(torch.nn.Module):
                 parameters in the checkpoint. Defaults to `True`.
         """
         # Assume that all parameters are either on the CPU or on the GPU.
-        device = next(self.parameters()).device
+        # Get the first parameter key (e.g., 'encoder')
+        # param_key = list(params['params'].keys())[0]
+        # param_value = params['params'][param_key]     # Access the corresponding parameter value
+        device = jax.devices()[0]
 
-        d = torch.load(path, map_location=device, weights_only=True)
+        d = torch.load(
+            path, map_location="cpu" if device.platform == "cpu" else "cuda", weights_only=True
+        )
 
         # You can safely ignore all cumbersome processing below. We modified the model after we
         # trained it. The code below manually adapts the checkpoints, so the checkpoints are
@@ -339,7 +300,8 @@ class Aurora(torch.nn.Module):
                 f"into model with `max_history_size` {self.max_history_size}."
             )
 
-        self.load_state_dict(d, strict=False)
+        jax_params = self.convert_pytorch_to_jax(d)
+        return jax_params
 
     def adapt_checkpoint_max_history_size(self, checkpoint: dict[str, torch.Tensor]) -> None:
         """Adapt a checkpoint with smaller `max_history_size` to a model with a larger
@@ -384,6 +346,22 @@ class Aurora(torch.nn.Module):
         This is required in order to compute gradients without running out of memory.
         """
         apply_activation_checkpointing(self, check_fn=lambda x: isinstance(x, BasicLayer3D))
+
+    def convert_pytorch_to_jax(self, state_dict):
+        """
+        Convert PyTorch state dictionary to JAX-compatible format.
+
+        Args:
+            state_dict (dict): PyTorch state dictionary with parameter names and tensors.
+
+        Returns:
+            dict: JAX-compatible state dictionary with the same keys and JAX arrays.
+        """
+        jax_state_dict = {}
+        for key, value in state_dict.items():
+            # Convert PyTorch tensors to JAX arrays
+            jax_state_dict[key] = jnp.array(value.cpu().numpy())
+        return jax_state_dict
 
 
 AuroraSmall = partial(

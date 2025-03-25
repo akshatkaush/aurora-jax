@@ -58,7 +58,6 @@ These files are licenced under respectively the following two licences:
 
 from typing import Optional
 
-import jax
 import jax.numpy as jnp
 from einops import rearrange
 from flax import linen as nn
@@ -93,7 +92,7 @@ class PerceiverAttention(nn.Module):
     def setup(self):
         self.inner_dim = self.head_dim * self.num_heads
 
-        self.to_q = nn.Dense(self.inner_dim, use_bias=False)
+        self.to_q = nn.Dense(features=self.inner_dim, use_bias=False)
         self.to_kv = nn.Dense(features=self.inner_dim * 2, use_bias=False)
         self.to_out = nn.Dense(features=self.latent_dim, use_bias=False)
 
@@ -130,19 +129,19 @@ class PerceiverAttention(nn.Module):
 
         # Reshape to separate heads: (B, L, inner_dim) -> (B, L, h, head_dim) -> (B, h, L, head_dim)
         batch_size = q.shape[0]
-        q_reshaped = q.reshape(batch_size, -1, h, self.head_dim).transpose(0, 2, 1, 3)
-        k_reshaped = k.reshape(batch_size, -1, h, self.head_dim).transpose(0, 2, 1, 3)
-        v_reshaped = v.reshape(batch_size, -1, h, self.head_dim).transpose(0, 2, 1, 3)
+        q_reshaped = q.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
+        k_reshaped = k.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
+        v_reshaped = v.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
 
         # Use JAX's dot_product_attention function
-        out = jax.nn.dot_product_attention(
+        out = nn.dot_product_attention(
             q_reshaped,
             k_reshaped,
             v_reshaped,
         )
 
         # Reshape back: (B, h, L1, head_dim) -> (B, L1, h, head_dim) -> (B, L1, inner_dim)
-        out = rearrange(out, "B H L1 D -> B L1 (H D)")
+        out = rearrange(out, "B L1 H D -> B L1 (H D)")
 
         # Project to output dimension
         return self.to_out(out)
@@ -180,11 +179,11 @@ class PerceiverResampler(nn.Module):
     ln_k_q: bool = False
 
     def setup(self):
-        self.layers = []
+        layers = []
         mlp_hidden_dim = int(self.latent_dim * self.mlp_ratio)
 
         for i in range(self.depth):
-            self.layers.append(
+            layers.append(
                 (
                     PerceiverAttention(
                         latent_dim=self.latent_dim,
@@ -198,6 +197,7 @@ class PerceiverResampler(nn.Module):
                     nn.LayerNorm(epsilon=self.ln_eps),
                 )
             )
+        self.layers = layers
 
     def __call__(self, latents, x):
         """Run the module.
