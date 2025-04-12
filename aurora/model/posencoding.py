@@ -8,6 +8,7 @@ Parts of this code are inspired by
 import jax
 import jax.numpy as jnp
 from jax import lax
+from jax.experimental import checkify
 from timm.models.layers.helpers import to_2tuple
 
 from aurora.model.fourier import FourierExpansion
@@ -45,41 +46,25 @@ def patch_root_area(
     lat_max: jnp.ndarray,
     lon_max: jnp.ndarray,
 ) -> jnp.ndarray:
-    """For a rectangular patch on a sphere, compute the square root of the area of the patch in
-    units km^2. The root is taken to return units of km, and thus stay scalable between different
-    resolutions.
+    """Compute the square root of the area of a rectangular patch on a sphere."""
+    # Check conditions using checkify
+    checkify.check(jnp.all(lat_max > lat_min), "All lat_max values must exceed lat_min values")
+    checkify.check(
+        jnp.all(lon_max > lon_min), "All lon_max values must exceed lon_min values (no wrap-around)"
+    )
+    checkify.check(
+        jnp.all(jnp.abs(lat_max) <= 90.0) & jnp.all(jnp.abs(lat_min) <= 90.0),
+        "Latitudes out of [-90, 90] degree range",
+    )
+    checkify.check(
+        jnp.all(lon_max <= 360.0) & jnp.all(lon_min <= 360.0),
+        "Longitudes exceed 360 degree maximum",
+    )
+    checkify.check(
+        jnp.all(lon_max >= 0.0) & jnp.all(lon_min >= 0.0), "Negative longitudes detected"
+    )
 
-    Args:
-        lat_min (torch.Tensor): Minimum latitutes of patches.
-        lon_min (torch.Tensor): Minimum longitudes of patches.
-        lat_max (torch.Tensor): Maximum latitudes of patches.
-        lon_max (torch.Tensor): Maximum longitudes of patches.
-
-    Returns:
-        torch.Tensor: Square root of the area.
-    """
-    # Calculate area of latitude-longitude grid using the following formula. Phis are latitudes
-    # and thetas are longitudes.
-    #
-    #   area = R**2 * pi * (sin(phi_1) - sin(phi_2)) * (theta_1 - theta_2)
-    #
-    # Taken from
-    #
-    #   https://www.johndcook.com/blog/2023/02/21/sphere-grid-area/
-    #
-
-    # todo:  Check if the following assertions are necessary.
-    #  Not recommended in jax, but for control flow, I am allowing it.
-    if not jnp.all(lat_max > lat_min):
-        raise ValueError("All lat_max values must exceed lat_min values")
-    if not jnp.all(lon_max > lon_min):
-        raise ValueError("All lon_max values must exceed lon_min values (no wrap-around)")
-    if not jnp.all(jnp.abs(lat_max) <= 90.0) & jnp.all(jnp.abs(lat_min) <= 90.0):
-        raise ValueError("Latitudes out of [-90, 90] degree range")
-    if not jnp.all(lon_max <= 360.0) & jnp.all(lon_min <= 360.0):
-        raise ValueError("Longitudes exceed 360 degree maximum")
-    if not jnp.all(lon_max >= 0.0) & jnp.all(lon_min >= 0.0):
-        raise ValueError("Negative longitudes detected")
+    # Compute area
     area = (
         6371**2
         * jnp.pi
@@ -87,8 +72,8 @@ def patch_root_area(
         * (jnp.deg2rad(lon_max) - jnp.deg2rad(lon_min))
     )
 
-    if not jnp.all(area > 0.0):
-        raise ValueError("Non-positive area calculated - check input coordinates")
+    # Additional check for non-positive area
+    checkify.check(jnp.all(area > 0.0), "Non-positive area calculated - check input coordinates")
 
     return jnp.sqrt(area)
 

@@ -1,8 +1,9 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-from datetime import timedelta
+from typing import Optional
 
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
 from einops import rearrange
 
@@ -95,7 +96,7 @@ class Perceiver3DEncoder(nn.Module):
             ],
             dtype=jnp.float64,
         )
-        _min_patch_area: float = area(coords).item()
+        _min_patch_area: float = area(coords)
         _area_earth = 4 * jnp.pi * radius_earth * radius_earth
 
         self.levels_exp = FourierExpansion(_delta, 1e5)
@@ -122,21 +123,22 @@ class Perceiver3DEncoder(nn.Module):
         x = x.reshape(B, L, -1, self.embed_dim)
         return jnp.einsum("blcd->bcld", x)
 
-    def __call__(self, batch: Batch, lead_time: timedelta) -> jnp.ndarray:
+    def __call__(
+        self, batch: Batch, lead_time: int, training: bool, rng: Optional[jax.random.PRNGKey] = None
+    ) -> jnp.ndarray:
         # rng = jax.random.PRNGKey(0)
-        surf_vars = tuple(batch.surf_vars.keys())
-        static_vars = tuple(batch.static_vars.keys())
-        atmos_vars = tuple(batch.atmos_vars.keys())
+        surf_vars = batch.surf_vars_ordered_keys()
+        static_vars = batch.static_vars_ordered_keys()
+        atmos_vars = batch.atmos_vars_ordered_keys()
         atmos_levels = batch.metadata.atmos_levels
 
-        x_surf = jnp.stack(tuple(batch.surf_vars.values()), axis=2)
-        # np.save('../tempData/arrayJax.npy', np.array(x_surf))
-        x_static = jnp.stack(tuple(batch.static_vars.values()), axis=2)
-        x_atmos = jnp.stack(tuple(batch.atmos_vars.values()), axis=2)
+        # todo make faster
+        x_surf = jnp.stack(batch.surf_vars_ordered_values(), axis=2)
+        x_static = jnp.stack(batch.static_vars_ordered_values(), axis=2)
+        x_atmos = jnp.stack(batch.atmos_vars_ordered_values(), axis=2)
 
         B, T, _, C, H, W = x_atmos.shape
         assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
-
         if self.static_vars is None:
             assert x_static is None, "Static variables given, but not configured."
         else:
@@ -198,17 +200,16 @@ class Perceiver3DEncoder(nn.Module):
         x = x + pos_encode + scale_encode
 
         x = jnp.reshape(x, (B, -1, self.embed_dim))
-
+        # jax.debug.breakpoint()
         # Add lead time embedding
-        lead_hours = lead_time.total_seconds() / 3600
+        lead_hours = lead_time / 3600
         lead_times = lead_hours * jnp.ones((B,), dtype=dtype)
         lead_time_encode = self.lead_time_expansion(lead_times, self.embed_dim).astype(dtype)
         lead_time_emb = self.lead_time_embed(lead_time_encode)  # (B, D)
         x = x + jnp.expand_dims(lead_time_emb, 1)  # (B, L', D) + (B, 1, D)
 
         # Add absolute time embedding
-        absolute_times_list = [t.timestamp() / 3600 for t in batch.metadata.time]  # Times in hours
-        absolute_times = jnp.array(absolute_times_list, dtype=jnp.float32)
+        absolute_times = jnp.array([t / 3600 for t in batch.metadata.time], dtype=jnp.float64)
         absolute_time_encode = self.absolute_time_expansion(absolute_times, self.embed_dim)
         absolute_time_embed = self.absolute_time_embed(absolute_time_encode.astype(dtype))
         x = x + jnp.expand_dims(absolute_time_embed, 1)  # (B, L, D) + (B, 1, D)

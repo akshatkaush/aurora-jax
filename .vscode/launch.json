@@ -9,7 +9,8 @@
             "console": "integratedTerminal",
             "python": "/mnt/castor/seas_home/a/akaush/aurora3env/bin/python",
             "env": {
-                "CUDA_VISIBLE_DEVICES": "1"
+                "CUDA_VISIBLE_DEVICES": "2",
+                "JAX_ENABLE_X64": "True"
             }
         }
     ]

@@ -1,8 +1,8 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
+import contextlib
 import dataclasses
 import warnings
-from datetime import timedelta
 from functools import partial
 from typing import Dict, Optional, Tuple
 
@@ -49,7 +49,7 @@ class Aurora(nn.Module):
     dec_mlp_ratio: float = 2.0
     perceiver_ln_eps: float = 1e-5
     max_history_size: int = 2
-    timestep: timedelta = timedelta(hours=6)
+    timestep: int = 21600
     stabilise_level_agg: bool = False
     use_lora: bool = True
     lora_steps: int = 40
@@ -86,7 +86,7 @@ class Aurora(nn.Module):
         )
 
         self.backbone = Swin3DTransformerBackbone(
-            window_size=self.window_size,
+            window_size_temp=self.window_size,
             encoder_depths=self.encoder_depths,
             encoder_num_heads=self.encoder_num_heads,
             decoder_depths=self.decoder_depths,
@@ -115,7 +115,9 @@ class Aurora(nn.Module):
             perceiver_ln_eps=self.perceiver_ln_eps,
         )
 
-    def __call__(self, batch: Batch) -> Batch:
+    def __call__(
+        self, batch: Batch, training: bool, rng: Optional[jax.random.PRNGKey] = None
+    ) -> Batch:
         """Forward pass.
 
         Args:
@@ -129,11 +131,11 @@ class Aurora(nn.Module):
         batch = batch.crop(patch_size=self.patch_size)
 
         H, W = batch.spatial_shape
-        # patch_res = (
-        #     self.encoder.latent_levels,
-        #     H // self.encoder.patch_size,
-        #     W // self.encoder.patch_size,
-        # )
+        patch_res = (
+            self.encoder.latent_levels,
+            H // self.encoder.patch_size,
+            W // self.encoder.patch_size,
+        )
 
         # Insert batch and history dimension for static variables.
         B, T = next(iter(batch.surf_vars.values())).shape[:2]
@@ -145,23 +147,35 @@ class Aurora(nn.Module):
             },
         )
 
-        # numpy_array = np.array(batch)
+        # numpy_array = jnp.array(batch)
 
         # Save the NumPy array to a file
         # np.save('../tempData/arrayJax.npy', numpy_array)
 
+        if rng is not None:
+            rng, encoder_rng, backbone_rng = jax.random.split(rng, 3)
+        else:
+            encoder_rng = backbone_rng = None
+
         x = self.encoder(
             batch,
             lead_time=self.timestep,
+            training=training,
+            rng=encoder_rng,
         )
 
-        # with torch.autocast(device_type="cuda") if self.autocast else contextlib.nullcontext():
-        #     x = self.backbone(
-        #         x,
-        #         lead_time=self.timestep,
-        #         patch_res=patch_res,
-        #         rollout_step=batch.metadata.rollout_step,
-        #     )
+        with jax.default_device(
+            jax.devices("gpu")[0]
+        ) if self.autocast else contextlib.nullcontext():
+            x = self.backbone(
+                x,
+                lead_time=self.timestep,
+                patch_res=patch_res,
+                rollout_step=batch.metadata.rollout_step,
+                training=training,
+                rng=backbone_rng,
+            )
+
         # pred = self.decoder(
         #     x,
         #     batch,

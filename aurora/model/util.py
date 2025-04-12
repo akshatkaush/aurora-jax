@@ -1,6 +1,6 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-from typing import TypeVar
+from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -54,28 +54,28 @@ def check_lat_lon_dtype(lat: jnp.ndarray, lon: jnp.ndarray) -> None:
     ], f"Longitudes need float32/64 for stability. Found: {lon.dtype}"
 
 
-T = TypeVar("T", tuple[int, int], tuple[int, int, int])
+@partial(jax.jit, static_argnums=(0, 1, 2))
+def maybe_adjust_windows(window_size, shift_size, res):
+    new_ws, new_ss = [], []
+    for ws, ss, r in zip(window_size, shift_size, res):
+        if r <= ws:
+            new_ws.append(r)
+            new_ss.append(0)
+        else:
+            new_ws.append(ws)
+            new_ss.append(ss)
+    return tuple(new_ws), tuple(new_ss)
 
+    # mut_shift_size, mut_window_size = jnp.ndarray(shift_size), list(window_size)
+    # for i in range(len(res)):
+    #     if res[i] <= window_size[i]:
+    #         mut_shift_size[i] = 0
+    #         mut_window_size[i] = res[i]
 
-def maybe_adjust_windows(window_size: T, shift_size: T, res: T) -> tuple[T, T]:
-    """Adjust the window size and shift size if the input resolution is smaller than the window
-    size."""
-    err_msg = f"Expected same length, found {len(window_size)}, {len(shift_size)} and {len(res)}."
-    assert len(window_size) == len(shift_size) == len(res), err_msg
+    # new_window_size: T = tuple(mut_window_size)  # type: ignore[assignment]
+    # new_shift_size: T = tuple(mut_shift_size)
 
-    mut_shift_size, mut_window_size = list(shift_size), list(window_size)
-    for i in range(len(res)):
-        if res[i] <= window_size[i]:
-            mut_shift_size[i] = 0
-            mut_window_size[i] = res[i]
-
-    new_window_size: T = tuple(mut_window_size)  # type: ignore[assignment]
-    new_shift_size: T = tuple(mut_shift_size)  # type: ignore[assignment]
-
-    assert min(new_window_size) > 0, f"Window size must be positive. Found {new_window_size}."
-    assert min(new_shift_size) >= 0, f"Shift size must be non-negative. Found {new_shift_size}."
-
-    return new_window_size, new_shift_size
+    # return new_window_size, new_shift_size
 
 
 def trunc_normal(std: float = 0.02, mean: float = 0.0, lower: float = -2.0, upper: float = 2.0):

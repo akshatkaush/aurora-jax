@@ -2,97 +2,15 @@ from pathlib import Path
 
 import jax
 import jax.numpy as jnp
+import orbax.checkpoint as ocp
 import xarray as xr
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
-
-
-def transform_key(key):
-    """
-    Given a dot-separated key from `params`, split it into parts and rename segments
-    to match the structure of template_params.
-    """
-    parts = key.split(".")
-    new_parts = []
-    i = 0
-    while i < len(parts):
-        part = parts[i]
-        # Group layers if encountered, e.g., "layers", "0", "1" -> "layers_0_1"
-        if (
-            part == "layers"
-            and i + 2 < len(parts)
-            and parts[i + 1].isdigit()
-            and parts[i + 2].isdigit()
-        ):
-            new_parts.append(f"layers_{parts[i+1]}_{parts[i+2]}")
-            i += 3
-            continue
-        # Rename "net.0" to "Dense_0" and "net.2" to "Dense_1"
-        if part == "net" and i + 1 < len(parts) and parts[i + 1] in {"0", "2"}:
-            new_parts.append("Dense_0" if parts[i + 1] == "0" else "Dense_1")
-            i += 2
-            continue
-        # Combine "weights" with the following segment, e.g., "weights", "q" -> "weights_q"
-        if part == "weights" and i + 1 < len(parts):
-            new_parts.append("weights_" + parts[i + 1])
-            i += 2
-            continue
-        # For the final segment: change "weight" to "kernel"
-        if i == len(parts) - 1:
-            if part == "weight":
-                new_parts.append("kernel")
-            else:
-                new_parts.append(part)
-            i += 1
-            continue
-
-        new_parts.append(part)
-        i += 1
-
-    return new_parts
-
-
-def unflatten_and_transform(params):
-    """
-    Converts the flat dictionary `params` (with dot-separated keys)
-    into a nested dictionary (pytree) matching the template_params structure.
-    Only keys that start with 'encoder' are kept.
-
-    For keys that become 'kernel' (transformed from 'weight'),
-    the value is transposed (if it is a 2D array) to convert from the original
-    convention to the template convention.
-    """
-    new_dict = {}
-    for flat_key, value in params.items():
-        # Only process keys that start with 'encoder'
-        if not flat_key.startswith("encoder"):
-            continue
-
-        new_key_parts = transform_key(flat_key)
-        d = new_dict
-        for part in new_key_parts[:-1]:
-            d = d.setdefault(part, {})
-
-        # If the key is now "kernel" and the value is a 2D jax array, transpose it.
-        if new_key_parts[-1] == "kernel" and hasattr(value, "ndim") and value.ndim == 2:
-            value = jnp.transpose(value)
-
-        d[new_key_parts[-1]] = value
-    new_dict["encoder"]["level_agg"]["layers_0_2"]["scale"] = new_dict["encoder"]["level_agg"][
-        "layers_0_2"
-    ].pop("kernel")
-    new_dict["encoder"]["level_agg"]["layers_0_3"]["scale"] = new_dict["encoder"]["level_agg"][
-        "layers_0_3"
-    ].pop("kernel")
-    new_dict["encoder"]["surf_norm"]["scale"] = new_dict["encoder"]["surf_norm"].pop("kernel")
-    return new_dict
-
 
 download_path = Path("dataset")
 static_vars_ds = xr.open_dataset(download_path / "static.nc", engine="netcdf4")
 surf_vars_ds = xr.open_dataset(download_path / "2023-01-01-surface-level.nc", engine="netcdf4")
 atmos_vars_ds = xr.open_dataset(download_path / "2023-01-01-atmospheric.nc", engine="netcdf4")
-
 
 i = 1  # Select this time index in the downloaded data.
 jax.config.update("jax_enable_x64", True)
@@ -125,32 +43,29 @@ batch = Batch(
         # Converting to `datetime64[s]` ensures that the output of `tolist()` gives
         # `datetime.datetime`s. Note that this needs to be a tuple of length one:
         # one value for every batch element.
-        time=(surf_vars_ds.valid_time.values.astype("datetime64[s]").tolist()[i],),
+        time=(
+            jnp.array(
+                surf_vars_ds.valid_time.values.astype("datetime64[s]").astype(float)[i],
+                dtype=jnp.float64,
+            ),
+        ),
         atmos_levels=tuple(int(level) for level in atmos_vars_ds.pressure_level.values),
     ),
 )
-
-
 model = AuroraSmall(use_lora=False)
 rng = jax.random.PRNGKey(0)
+params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
 
-variables = model.init(rng, batch)
-template_params = variables["params"]
-params = model.load_checkpoint("microsoft/aurora", "aurora-0.25-small-pretrained.ckpt")
-params = {key: value for key, value in params.items() if key.startswith("encoder")}
-
-params = unflatten_and_transform(params)
-# jnp.save('model_params.npy', result)
-
-assert jax.tree_structure(template_params) == jax.tree_structure(params)
-
-assert jax.tree_util.tree_all(
-    jax.tree_map(lambda x, y: x.shape == y.shape, template_params, params)
+params_backbone = ocp.StandardCheckpointer().restore(
+    "/home1/a/akaush/aurora/checkpointsTillBackbone"
 )
 
+params = {
+    "encoder": params_encoder["encoder"],
+    "backbone": params_backbone["backbone"],
+}
 params = jax.device_put(params, device=jax.devices("gpu")[0])
 
-# ploting the predictions
 preds = [
     pred.to("cpu")
     for pred in rollout(model, batch, steps=2, params=params, training=False, rng=rng)

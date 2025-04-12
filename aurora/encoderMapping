@@ -1,89 +1,258 @@
-Path: ['encoder']/['absolute_time_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['absolute_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['atmos_latents'], Shape: (3, 256), dtype: float32
-Path: ['encoder']/['atmos_levels_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['atmos_levels_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_q'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_t'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_u'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_v'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['lead_time_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['lead_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_kv']/['kernel'], Shape: (256, 512), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_out']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_q']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_2']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_2']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_3']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_3']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['pos_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['pos_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['scale_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['scale_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['surf_level_encoding'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
-Path: ['encoder']/['surf_norm']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_norm']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_10u'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_10v'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_2t'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_lsm'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_msl'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_slt'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
--------------------------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------------------------
-Path: ['encoder']/['absolute_time_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['absolute_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['atmos_latents'], Shape: (3, 256), dtype: float32
-Path: ['encoder']/['atmos_levels_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['atmos_levels_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_q'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_t'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_u'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_v'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['atmos_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['lead_time_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['lead_time_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_kv']/['kernel'], Shape: (256, 512), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_out']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_0']/['to_q']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_1']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_2']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_2']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_3']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['level_agg']/['layers_0_3']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['pos_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['pos_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['scale_embed']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['scale_embed']/['kernel'], Shape: (256, 256), dtype: float32
-Path: ['encoder']/['surf_level_encoding'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_0']/['bias'], Shape: (1024,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_0']/['kernel'], Shape: (256, 1024), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_1']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_mlp']/['Dense_1']/['kernel'], Shape: (1024, 256), dtype: float32
-Path: ['encoder']/['surf_norm']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_norm']/['scale'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['bias'], Shape: (256,), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_10u'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_10v'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_2t'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_lsm'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_msl'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_slt'], Shape: (256, 1, 2, 4, 4), dtype: float32
-Path: ['encoder']/['surf_token_embeds']/['weights_z'], Shape: (256, 1, 2, 4, 4), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (1024, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (3072,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (1024, 3072), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (4096,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (1024, 4096), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (4096, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (1024, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (3072,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (1024, 3072), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (4096,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (1024, 4096), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (4096, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['upsample']']/['['lin1']']/['['kernel']'], Shape: (1024, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['upsample']']/['['lin2']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['upsample']']/['['norm']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_0']']/['['upsample']']/['['norm']']/['['scale']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_2']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_3']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_4']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['blocks_5']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['upsample']']/['['lin1']']/['['kernel']'], Shape: (512, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['upsample']']/['['lin2']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['upsample']']/['['norm']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_1']']/['['upsample']']/['['norm']']/['['scale']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (768,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (256, 768), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (1024, 256), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (768,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (256, 768), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (1024, 256), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['decoder_layers_2']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (768,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (256, 768), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (1024, 256), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (768,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (256, 768), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (1024, 256), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['downsample']']/['['norm']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['downsample']']/['['norm']']/['['scale']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_0']']/['['downsample']']/['['reduction']']/['['kernel']'], Shape: (1024, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_2']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_3']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_4']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['attn']']/['['proj']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (512, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (1536,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (512, 1536), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (512, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (512,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (2048, 512), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['blocks_5']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['downsample']']/['['norm']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['downsample']']/['['norm']']/['['scale']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_1']']/['['downsample']']/['['reduction']']/['['kernel']'], Shape: (2048, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['attn']']/['['proj']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (1024, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (3072,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (1024, 3072), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (4096,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (1024, 4096), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (4096, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_0']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['attn']']/['['proj']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['attn']']/['['proj']']/['['kernel']'], Shape: (1024, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['bias']'], Shape: (3072,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['attn']']/['['qkv']']/['['kernel']'], Shape: (1024, 3072), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['bias']'], Shape: (4096,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_0']']/['['kernel']'], Shape: (1024, 4096), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['bias']'], Shape: (1024,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['mlp']']/['['Dense_1']']/['['kernel']'], Shape: (4096, 1024), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['norm1']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['bias']'], Shape: (2048,), dtype: float32
+Path: ['['backbone']']/['['encoder_layers_2']']/['['blocks_1']']/['['norm2']']/['['ln_modulation']']/['['kernel']'], Shape: (256, 2048), dtype: float32
+Path: ['['backbone']']/['['time_mlp']']/['['layers_0']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['time_mlp']']/['['layers_0']']/['['kernel']'], Shape: (256, 256), dtype: float32
+Path: ['['backbone']']/['['time_mlp']']/['['layers_2']']/['['bias']'], Shape: (256,), dtype: float32
+Path: ['['backbone']']/['['time_mlp']']/['['layers_2']']/['['kernel']'], Shape: (256, 256), dtype: float32

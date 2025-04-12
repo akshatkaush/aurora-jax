@@ -31,6 +31,9 @@ htmlcov
 .envrc
 
 checkpoints/
+checkpointsTillEncoder/
+checkpointsTillBackbone/
+checkpointsTillBackbone/
 mlflow_tmp/
 aurora_mlflow_pyfunc/
 mlruns/

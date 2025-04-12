@@ -3,7 +3,9 @@
 import dataclasses
 from typing import Generator
 
+import jax
 import jax.numpy as jnp
+from jax.experimental import checkify
 
 from aurora.batch import Batch
 from aurora.model.aurora import Aurora
@@ -32,7 +34,11 @@ def rollout(
     # batch = batch.to(p.device)
 
     for _ in range(steps):
-        pred = model.apply({"params": params}, batch)
+        my_function_checked = checkify.checkify(model.apply)
+        model_jitted = jax.jit(my_function_checked)
+        err, pred = model_jitted({"params": params}, batch, training=training, rng=rng)
+        err.throw()
+        # pred = model.apply({"params": params}, batch)
 
         yield pred
         batch = dataclasses.replace(

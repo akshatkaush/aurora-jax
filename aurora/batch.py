@@ -1,16 +1,16 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-import dataclasses
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Callable, List
 
 import jax
 import jax.numpy as jnp
+import jax_dataclasses as jdc
 import numpy as np
 from jax import device_put
 from scipy.interpolate import RegularGridInterpolator as RGI
+from typing_extensions import dataclass_transform
 
 from aurora.normalisation import (
     normalise_atmos_var,
@@ -22,55 +22,21 @@ from aurora.normalisation import (
 __all__ = ["Metadata", "Batch"]
 
 
-@dataclasses.dataclass
+@dataclass_transform(field_specifiers=(jdc.Static,))
+def pytree_dataclass(cls):
+    return jdc.pytree_dataclass(cls)
+
+
+@pytree_dataclass
 class Metadata:
-    """Metadata in a batch.
-
-    Args:
-        lat (:class:`torch.Tensor`): Latitudes.
-        lon (:class:`torch.Tensor`): Longitudes.
-        time (tuple[datetime, ...]): For every batch element, the time.
-        atmos_levels (tuple[int | float, ...]): Pressure levels for the atmospheric variables in
-            hPa.
-        rollout_step (int, optional): How many roll-out steps were used to produce this prediction.
-            If equal to `0`, which is the default, then this means that this is not a prediction,
-            but actual data. This field is automatically populated by the model and used to use a
-            separate LoRA for every roll-out step. Generally, you are safe to ignore this field.
-    """
-
     lat: jnp.ndarray
     lon: jnp.ndarray
-    time: tuple[datetime, ...]
+    time: jdc.Static[tuple[float, ...]]
     atmos_levels: tuple[int | float, ...]
     rollout_step: int = 0
 
-    def __post_init__(self):
-        if not (jnp.all(self.lat <= 90) and jnp.all(self.lat >= -90)):
-            raise ValueError("Latitudes must be in the range [-90, 90].")
-        if not (jnp.all(self.lon >= 0) and jnp.all(self.lon < 360)):
-            raise ValueError("Longitudes must be in the range [0, 360).")
 
-        # Validate vector-valued latitudes and longitudes:
-        if self.lat.ndim == self.lon.ndim == 1:
-            if not jnp.all(self.lat[1:] - self.lat[:-1] < 0):
-                raise ValueError("Latitudes must be strictly decreasing.")
-            if not jnp.all(self.lon[1:] - self.lon[:-1] > 0):
-                raise ValueError("Longitudes must be strictly increasing.")
-
-        # Validate matrix-valued latitudes and longitudes:
-        elif self.lat.ndim == self.lon.ndim == 2:
-            if not jnp.all(self.lat[1:, :] - self.lat[:-1, :]):
-                raise ValueError("Latitudes must be strictly decreasing along every column.")
-            if not jnp.all(self.lon[:, 1:] - self.lon[:, :-1] > 0):
-                raise ValueError("Longitudes must be strictly increasing along every row.")
-
-        else:
-            raise ValueError(
-                "The latitudes and longitudes must either both be vectors or both be matrices."
-            )
-
-
-@dataclasses.dataclass
+@pytree_dataclass
 class Batch:
     """A batch of data.
 
@@ -86,7 +52,33 @@ class Batch:
     surf_vars: dict[str, jnp.ndarray]
     static_vars: dict[str, jnp.ndarray]
     atmos_vars: dict[str, jnp.ndarray]
-    metadata: Metadata
+    metadata: jdc.Static[Metadata]
+
+    # todo remove hardcode
+    _surf_vars_order: jdc.Static[tuple[str, ...]] = ("2t", "10u", "10v", "msl")
+    _static_vars_order: jdc.Static[tuple[str, ...]] = ("z", "slt", "lsm")
+    _atmos_vars_order: jdc.Static[tuple[str, ...]] = ("t", "u", "v", "q", "z")
+
+    # todo use aux in tree_flatten and tree_unflatten
+    # Get ordered keys methods
+    def surf_vars_ordered_keys(self):
+        return self._surf_vars_order
+
+    def static_vars_ordered_keys(self):
+        return self._static_vars_order
+
+    def atmos_vars_ordered_keys(self):
+        return self._atmos_vars_order
+
+    # Get ordered items methods
+    def surf_vars_ordered_values(self):
+        return [self.surf_vars[k] for k in self._surf_vars_order]
+
+    def static_vars_ordered_values(self):
+        return [self.static_vars[k] for k in self._static_vars_order]
+
+    def atmos_vars_ordered_values(self):
+        return [self.atmos_vars[k] for k in self._atmos_vars_order]
 
     @property
     def spatial_shape(self) -> tuple[int, int]:
@@ -326,12 +318,12 @@ def interpolate(
 
 
 def interpolate_numpy(
-    v: np.ndarray,
-    lat: np.ndarray,
-    lon: np.ndarray,
-    lat_new: np.ndarray,
-    lon_new: np.ndarray,
-) -> np.ndarray:
+    v: jnp.ndarray,
+    lat: jnp.ndarray,
+    lon: jnp.ndarray,
+    lat_new: jnp.ndarray,
+    lon_new: jnp.ndarray,
+) -> jnp.ndarray:
     """Like :func:`.interpolate`, but for NumPy tensors."""
 
     # Implement periodic longitudes in `lon`.

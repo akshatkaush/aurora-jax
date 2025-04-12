@@ -1,7 +1,5 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-import math
-
 import jax
 import jax.numpy as jnp
 from flax import linen as nn
@@ -76,14 +74,13 @@ class FourierExpansion(nn.Module):
         x = x.astype(jnp.float64)
 
         wavelengths = jnp.logspace(
-            math.log10(self.lower),
-            math.log10(self.upper),
+            jnp.log10(jnp.array(self.lower)),
+            jnp.log10(jnp.array(self.upper)),
             d // 2,
             base=10,
             dtype=x.dtype,
         )
 
-        # JAX equivalent of torch.einsum
         prod = jnp.einsum("...i,j->...ij", x, 2 * jnp.pi / wavelengths)
         encoding = jnp.concatenate((jnp.sin(prod), jnp.cos(prod)), axis=-1)
 
@@ -97,7 +94,7 @@ coords = jnp.array(
     [[90.0, 0.0], [90.0, _delta], [90.0 - _delta, _delta], [90.0 - _delta, 0.0]], dtype=jnp.float64
 )
 
-_min_patch_area: float = area(coords).item()
+_min_patch_area: float = area(coords)
 _area_earth = 4 * jnp.pi * radius_earth * radius_earth
 
 pos_expansion = FourierExpansion(_delta, 720)
