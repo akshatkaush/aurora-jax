@@ -33,7 +33,9 @@ htmlcov
 checkpoints/
 checkpointsTillEncoder/
 checkpointsTillBackbone/
-checkpointsTillBackbone/
+checkpointsTillDecoder/
+datasetEnviousScratch/
+shardingStoreTemp/
 mlflow_tmp/
 aurora_mlflow_pyfunc/
 mlruns/

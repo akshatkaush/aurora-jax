@@ -5,7 +5,7 @@ from pathlib import Path
 import cdsapi
 
 # Data will be downloaded here.
-download_path = Path("./dataset")
+download_path = Path("./datasetEnviousScratch")
 
 c = cdsapi.Client()
 
@@ -92,3 +92,4 @@ if not (download_path / "2023-01-01-atmospheric.nc").exists():
         str(download_path / "2023-01-01-atmospheric.nc"),
     )
 print("Atmospheric variables downloaded!")
+# /scratch/akaush

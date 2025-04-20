@@ -32,13 +32,16 @@ def rollout(
     # batch = batch.type(p.dtype)
     batch = batch.crop(model.patch_size)
     # batch = batch.to(p.device)
+    checked_apply = checkify.checkify(model.apply)
+    step_fn = jax.jit(
+        lambda batch, rng: checked_apply({"params": params}, batch, training=training, rng=rng)
+    )
 
     for _ in range(steps):
-        my_function_checked = checkify.checkify(model.apply)
-        model_jitted = jax.jit(my_function_checked)
-        err, pred = model_jitted({"params": params}, batch, training=training, rng=rng)
+        rng, step_rng = jax.random.split(rng)
+        err, pred = step_fn(batch, step_rng)
         err.throw()
-        # pred = model.apply({"params": params}, batch)
+        # pred = model.apply({"params": params}, batch, training=training, rng=rng)
 
         yield pred
         batch = dataclasses.replace(

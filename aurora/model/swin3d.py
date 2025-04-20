@@ -156,62 +156,80 @@ class WindowAttention(nn.Module):
 
         qkv = rearrange(qkv, "B N (qkv H D) -> qkv B H N D", H=self.num_heads, qkv=3)
         q, k, v = qkv[0], qkv[1], qkv[2]
-        dropout_rate = jax.lax.cond(training, lambda _: self.attn_drop, lambda _: 0.0, operand=None)
+        k = jnp.transpose(k, (0, 2, 1, 3))
+        q = jnp.transpose(q, (0, 2, 1, 3))
+        v = jnp.transpose(v, (0, 2, 1, 3))
+
         if mask is not None:
             nW = mask.shape[0]
-            attention_bias = jnp.where(mask == 0, -jnp.inf, 0.0)
-            # B_orig = x.shape[0] // nW
+            # B, N, H, D = q.shape
+            # # infer window length
+            # window_len = mask.shape[1]
 
-            q = rearrange(q, "(B nW) H N D -> B nW H N D", nW=nW)
-            k = rearrange(k, "(B nW) H N D -> B nW H N D", nW=nW)
-            v = rearrange(v, "(B nW) H N D -> B nW H N D", nW=nW)
+            # 5) split seq dim into windows: [B, nW, window_len, H, D]
+            q = rearrange(q, "(B nW) N H D -> B nW N H D", nW=nW)
+            k = rearrange(k, "(B nW) N H D -> B nW N H D", nW=nW)
+            v = rearrange(v, "(B nW) N H D -> B nW N H D", nW=nW)
 
-            B, _, H, N, D = q.shape
+            # 6) build additive bias: [1, nW, 1, window_len, window_len]
+            bias = mask[jnp.newaxis, :, jnp.newaxis, :, :]
 
-            attn_weights = jnp.matmul(q, jnp.swapaxes(k, -2, -1))
-
-            scale = self.qk_scale or 1.0 / jnp.sqrt(self.head_dim)
-            attn_weights = attn_weights * scale
-
-            attention_bias = attention_bias.reshape(1, nW, 1, N, N)
-            attn_weights = attn_weights + attention_bias
-            attn_weights = jax.nn.softmax(attn_weights, axis=-1)
-            attn_weights = jax.lax.cond(
-                jnp.logical_not(training) & (dropout_rate > 0),  # Combined condition
-                lambda x: self.attn_drop_layer(
-                    x, deterministic=True
-                ),  # No need for jnp.logical_not
-                lambda x: x,
-                attn_weights,
-            )
-            x = jnp.matmul(attn_weights, v)
-            x = rearrange(x, "B nW H N D -> (B nW) H N D")
-        else:
+            # call Flax’s dot_product_attention
             x = jax.lax.cond(
                 training,
-                # Training branch (concrete dropout rate + deterministic=False)
                 lambda: nn.dot_product_attention(
                     query=q,
                     key=k,
                     value=v,
-                    dropout_rate=self.attn_drop,  # Use raw dropout value
-                    deterministic=False,  # Concrete boolean
-                    precision=None,
+                    bias=bias,
+                    dropout_rate=self.attn_drop,
+                    deterministic=False,
+                    dropout_rng=attn_rng,
+                    precision="highest",
+                    dtype=q.dtype,
+                ),
+                lambda: nn.dot_product_attention(
+                    query=q,
+                    key=k,
+                    value=v,
+                    bias=bias,
+                    dropout_rate=0.0,
+                    deterministic=True,
+                    dropout_rng=attn_rng,
+                    precision="highest",
+                    dtype=q.dtype,
+                ),
+            )
+
+            # back to [B*nW, H, N, D]
+            x = rearrange(x, "B nW H N D -> (B nW) H N D")
+        else:
+            # todo add scale
+            x = jax.lax.cond(
+                training,
+                lambda: nn.dot_product_attention(
+                    query=q,
+                    key=k,
+                    value=v,
+                    dropout_rate=self.attn_drop,
+                    deterministic=False,
+                    precision="highest",
                     dtype=q.dtype,
                     dropout_rng=attn_rng,
                 ),
-                # Inference branch (0 dropout + deterministic=True)
                 lambda: nn.dot_product_attention(
                     query=q,
                     key=k,
                     value=v,
-                    dropout_rate=0.0,  # Concrete float
-                    deterministic=True,  # Concrete boolean
-                    precision=None,
+                    dropout_rate=0.0,
+                    deterministic=True,
+                    precision="highest",
                     dtype=q.dtype,
                     dropout_rng=attn_rng,
                 ),
             )
+
+        x = jnp.transpose(x, (0, 2, 1, 3))
 
         x = rearrange(x, "B H N D -> B N (H D)")
         x = self.proj(x) + self.lora_proj(x, rollout_step)

@@ -2,18 +2,19 @@ from pathlib import Path
 
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
 import orbax.checkpoint as ocp
 import xarray as xr
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
 
-download_path = Path("dataset")
+download_path = Path("datasetEnviousScratch")
 static_vars_ds = xr.open_dataset(download_path / "static.nc", engine="netcdf4")
 surf_vars_ds = xr.open_dataset(download_path / "2023-01-01-surface-level.nc", engine="netcdf4")
 atmos_vars_ds = xr.open_dataset(download_path / "2023-01-01-atmospheric.nc", engine="netcdf4")
 
 i = 1  # Select this time index in the downloaded data.
-jax.config.update("jax_enable_x64", True)
 
 batch = Batch(
     surf_vars={
@@ -45,8 +46,7 @@ batch = Batch(
         # one value for every batch element.
         time=(
             jnp.array(
-                surf_vars_ds.valid_time.values.astype("datetime64[s]").astype(float)[i],
-                dtype=jnp.float64,
+                surf_vars_ds.valid_time.values.astype("datetime64[s]").tolist()[1].timestamp()
             ),
         ),
         atmos_levels=tuple(int(level) for level in atmos_vars_ds.pressure_level.values),
@@ -54,15 +54,19 @@ batch = Batch(
 )
 model = AuroraSmall(use_lora=False)
 rng = jax.random.PRNGKey(0)
-params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
+# variables = model.init(rng, batch, False, rng)
+# template_params = variables["params"]
 
+params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
 params_backbone = ocp.StandardCheckpointer().restore(
     "/home1/a/akaush/aurora/checkpointsTillBackbone"
 )
+params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointsTillDecoder")
 
 params = {
     "encoder": params_encoder["encoder"],
     "backbone": params_backbone["backbone"],
+    "decoder": params_decoder["decoder"],
 }
 params = jax.device_put(params, device=jax.devices("gpu")[0])
 
@@ -73,28 +77,23 @@ preds = [
 
 params = jax.device_put(params, device=jax.devices("cpu")[0])
 
-# fig, ax = plt.subplots(2, 2, figsize=(12, 6.5))
+fig, ax = plt.subplots(2, 2, figsize=(12, 6.5))
+for i in range(ax.shape[0]):
+    pred = preds[i]
 
-# for i in range(ax.shape[0]):
-#     pred = preds[i]
+    # Fix: Remove the singleton dimension with squeeze
+    ax[i, 0].imshow(np.squeeze(np.array(pred.surf_vars["2t"][0])) - 273.15, vmin=-50, vmax=50)
+    ax[i, 0].set_ylabel(str(pred.metadata.time[0]))
+    if i == 0:
+        ax[i, 0].set_title("Aurora Prediction")
+    ax[i, 0].set_xticks([])
+    ax[i, 0].set_yticks([])
 
-#     ax[i, 0].imshow(pred.surf_vars["2t"][0, 0].numpy() - 273.15, vmin=-50, vmax=50)
-#     ax[i, 0].set_ylabel(str(pred.metadata.time[0]))
-#     if i == 0:
-#         ax[i, 0].set_title("Aurora Prediction")
-#     ax[i, 0].set_xticks([])
-#     ax[i, 0].set_yticks([])
-
-#     ax[i, 1].imshow(surf_vars_ds["t2m"][2 + i].values - 273.15, vmin=-50, vmax=50)
-#     if i == 0:
-#         ax[i, 1].set_title("ERA5")
-#     ax[i, 1].set_xticks([])
-#     ax[i, 1].set_yticks([])
-#     plt.tight_layout()
-#     plt.savefig("aurora_comparison.png", bbox_inches="tight", dpi=300)
-#     plt.close()
-
-
-# # import jax
-# # print(jax.default_backend())  # Should print 'gpu'
-# # print(jax.devices())
+    ax[i, 1].imshow(surf_vars_ds["t2m"][2 + i].values - 273.15, vmin=-50, vmax=50)
+    if i == 0:
+        ax[i, 1].set_title("ERA5")
+    ax[i, 1].set_xticks([])
+    ax[i, 1].set_yticks([])
+plt.tight_layout()
+plt.savefig("aurora_comparison.png", bbox_inches="tight", dpi=300)
+plt.close()

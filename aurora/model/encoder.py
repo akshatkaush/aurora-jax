@@ -162,9 +162,7 @@ class Perceiver3DEncoder(nn.Module):
         x_atmos = jnp.reshape(x_atmos, (B, C, -1, self.embed_dim))  # (b c) l d -> b c l d
 
         # Add surface level encoding
-        x_surf = x_surf + jnp.expand_dims(jnp.expand_dims(self.surf_level_encoding, 0), 0).astype(
-            dtype
-        )
+        x_surf = x_surf + self.surf_level_encoding[None, None, :].astype(dtype)
         # Add Perceiver-like MLP for surface level
         x_surf = x_surf + self.surf_norm(self.surf_mlp(x_surf))
 
@@ -200,7 +198,6 @@ class Perceiver3DEncoder(nn.Module):
         x = x + pos_encode + scale_encode
 
         x = jnp.reshape(x, (B, -1, self.embed_dim))
-        # jax.debug.breakpoint()
         # Add lead time embedding
         lead_hours = lead_time / 3600
         lead_times = lead_hours * jnp.ones((B,), dtype=dtype)
@@ -209,7 +206,7 @@ class Perceiver3DEncoder(nn.Module):
         x = x + jnp.expand_dims(lead_time_emb, 1)  # (B, L', D) + (B, 1, D)
 
         # Add absolute time embedding
-        absolute_times = jnp.array([t / 3600 for t in batch.metadata.time], dtype=jnp.float64)
+        absolute_times = jnp.array([t / 3600 for t in batch.metadata.time])
         absolute_time_encode = self.absolute_time_expansion(absolute_times, self.embed_dim)
         absolute_time_embed = self.absolute_time_embed(absolute_time_encode.astype(dtype))
         x = x + jnp.expand_dims(absolute_time_embed, 1)  # (B, L, D) + (B, 1, D)

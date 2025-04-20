@@ -9,7 +9,7 @@ from flax.training import orbax_utils
 from aurora import AuroraSmall, Batch, Metadata
 
 
-def assign_pt_params_to_jax(jax_params, pt_params):
+def assign_pt_params_to_jax_backbone(jax_params, pt_params):
     """
     Assign PyTorch parameters to JAX parameters with appropriate transposition.
     Only processes parameters that start with 'backbone' and returns only the backbone parameters.
@@ -22,13 +22,13 @@ def assign_pt_params_to_jax(jax_params, pt_params):
         Updated JAX backbone parameters with values from PyTorch parameters
     """
     # Extract the backbone part of the JAX parameters
-    backbone_params = jax_params["backbone"]
+    backbone_params = jax_params["decoder"]
 
     # Flatten the backbone parameters (without paths)
     backbone_leaves, backbone_treedef = jax.tree_util.tree_flatten(backbone_params)
 
     # Get the PyTorch backbone parameters
-    pt_backbone_params = {k: v for k, v in pt_params.items() if k.startswith("backbone")}
+    pt_backbone_params = {k: v for k, v in pt_params.items() if k.startswith("decoder")}
     pt_backbone_keys = sorted(pt_backbone_params.keys())
 
     # Convert PyTorch parameters to numpy arrays
@@ -52,7 +52,7 @@ def assign_pt_params_to_jax(jax_params, pt_params):
 
     # Reconstruct the backbone parameters with updated leaves
     updated_backbone_params = jax.tree_util.tree_unflatten(backbone_treedef, updated_leaves)
-    updated_params = {"backbone": updated_backbone_params}
+    updated_params = {"decoder": updated_backbone_params}
     return updated_params
 
 
@@ -160,14 +160,13 @@ def unflatten_and_transform(params):
     return new_dict
 
 
-download_path = Path("dataset")
+download_path = Path("datasetEnviousScratch")
 static_vars_ds = xr.open_dataset(download_path / "static.nc", engine="netcdf4")
 surf_vars_ds = xr.open_dataset(download_path / "2023-01-01-surface-level.nc", engine="netcdf4")
 atmos_vars_ds = xr.open_dataset(download_path / "2023-01-01-atmospheric.nc", engine="netcdf4")
 
 
 i = 1  # Select this time index in the downloaded data.
-jax.config.update("jax_enable_x64", True)
 batch = Batch(
     surf_vars={
         # First select time points `i` and `i - 1`. Afterwards, `[None]` inserts a
@@ -210,7 +209,7 @@ batch = Batch(
 model = AuroraSmall(use_lora=False)
 rng = jax.random.PRNGKey(0)
 
-variables = model.init(rng, batch)
+variables = model.init(rng, batch, training=False, rng=rng)
 template_params = variables["params"]
 params = model.load_checkpoint("microsoft/aurora", "aurora-0.25-small-pretrained.ckpt")
 
@@ -223,31 +222,24 @@ params = model.load_checkpoint("microsoft/aurora", "aurora-0.25-small-pretrained
 # for key, (shape, dtype) in extract_pt_params(params).items():
 #     print(f"Path: {key}, Shape: {shape}, dtype: {dtype}")
 
-# print("\nComparison results:")
-# compare_params(template_params, params)
-
-
-final_backbone_params = assign_pt_params_to_jax(template_params, params)
-assert jax.tree_structure(final_backbone_params["backbone"]) == jax.tree_structure(
-    template_params["backbone"]
+final_backbone_params = assign_pt_params_to_jax_backbone(template_params, params)
+assert jax.tree_structure(final_backbone_params["decoder"]) == jax.tree_structure(
+    template_params["decoder"]
 )
 
 assert jax.tree_util.tree_all(
     jax.tree_map(
         lambda x, y: x.shape == y.shape,
-        final_backbone_params["backbone"],
-        template_params["backbone"],
+        final_backbone_params["decoder"],
+        template_params["decoder"],
     )
 )
-
-# checkpointer = ocp.StandardCheckpointer()
-# checkpointer.save('/home1/a/akaush/aurora/paramsTill', params)
 
 
 checkpointer = ocp.PyTreeCheckpointer()
 save_args = orbax_utils.save_args_from_target(final_backbone_params)
 checkpointer.save(
-    "/home1/a/akaush/aurora/checkpointsTillBackbone",
+    "/home1/a/akaush/aurora/checkpointsTillDecoder",
     final_backbone_params,
     save_args=save_args,
     force=True,

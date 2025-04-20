@@ -176,44 +176,31 @@ class Aurora(nn.Module):
                 rng=backbone_rng,
             )
 
-        # pred = self.decoder(
-        #     x,
-        #     batch,
-        #     lead_time=self.timestep,
-        #     patch_res=patch_res,
-        # )
+        pred = self.decoder(
+            x,
+            batch,
+            lead_time=self.timestep,
+            patch_res=patch_res,
+            training=training,
+            rng=backbone_rng,
+        )
 
-        # # Remove batch and history dimension from static variables.
-        # pred = dataclasses.replace(
-        #     pred,
-        #     static_vars={k: v[0, 0] for k, v in batch.static_vars.items()},
-        # )
+        # Remove batch and history dimension from static variables.
+        pred = dataclasses.replace(
+            pred,
+            static_vars={k: v[0, 0] for k, v in batch.static_vars.items()},
+        )
 
-        # # Insert history dimension in prediction. The time should already be right.
-        # pred = dataclasses.replace(
-        #     pred,
-        #     surf_vars={k: v[:, None] for k, v in pred.surf_vars.items()},
-        #     atmos_vars={k: v[:, None] for k, v in pred.atmos_vars.items()},
-        # )
+        # Insert history dimension in prediction. The time should already be right.
+        pred = dataclasses.replace(
+            pred,
+            surf_vars={k: v[:, None] for k, v in pred.surf_vars.items()},
+            atmos_vars={k: v[:, None] for k, v in pred.atmos_vars.items()},
+        )
 
-        # pred = pred.unnormalise(surf_stats=self.surf_stats)
-        # print(f"Mean: {jnp.mean(x)}")
-        # print(f"Standard Deviation: {jnp.std(x)}")
-        # print(f"Variance: {jnp.var(x)}")
-        # print('------------------------------------------------------------------')
-        # torch_tensor = torch.load('tensor.pt').numpy()
-        # x = np.array(x)
-        # differences = np.abs(torch_tensor - x)
-        # print(f"Mean: {np.mean(differences)}")
-        # print(f"Standard Deviation: {np.std(differences)}")
-        # max_difference = np.max(differences)
-        # min_difference = np.min(differences)
-
-        # print("Maximum difference:", max_difference)
-        # print("Minimum difference:", min_difference)
-        # print(differences)
-        return x
-        # return pred
+        pred = pred.unnormalise(surf_stats=self.surf_stats)
+        return pred
+        # return x
 
     def load_checkpoint(self, repo: str, name: str, strict: bool = True):
         """Load a checkpoint from HuggingFace.

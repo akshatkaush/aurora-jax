@@ -5,7 +5,6 @@ Parts of this code are inspired by
     https://github.com/microsoft/ClimaX/blob/6d5d354ffb4b91bb684f430b98e8f6f8af7c7f7c/src/climax/utils/pos_embed.py
 """
 
-import jax
 import jax.numpy as jnp
 from jax import lax
 from jax.experimental import checkify
@@ -104,7 +103,6 @@ def pos_scale_enc_grid(
         tuple[torch.Tensor, torch.Tensor]: Positional encoding and scale encoding of shape
             `(B, H/patch[0] * W/patch[1], D)`.
     """
-    rng = jax.random.PRNGKey(0)
     assert encode_dim % 4 == 0
     assert grid.ndim == 4
 
@@ -124,11 +122,8 @@ def pos_scale_enc_grid(
     # Use half of dimensions for the latitudes of the midpoints of the patches and the other
     # half for the longitudes. Before computing the encodings, flatten over the spatial dimensions.
     B = grid_h.shape[0]
-    variables = pos_expansion.init(rng, grid_h.reshape(B, -1), encode_dim // 2)
 
-    # Then apply it with the variables
-    # Then apply it with the variables
-    encode_h = pos_expansion.apply(variables, grid_h.reshape(B, -1), encode_dim // 2)  # (B, L, D/2)
+    encode_h = pos_expansion(grid_h.reshape(B, -1), encode_dim // 2)  # (B, L, D/2)
     encode_w = pos_expansion(grid_w.reshape(B, -1), encode_dim // 2)  # (B, L, D/2)
     pos_encode = jnp.concatenate((encode_h, encode_w), axis=-1)  # (B, L, D)
 

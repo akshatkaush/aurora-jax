@@ -31,8 +31,8 @@ def pytree_dataclass(cls):
 class Metadata:
     lat: jnp.ndarray
     lon: jnp.ndarray
-    time: jdc.Static[tuple[float, ...]]
-    atmos_levels: tuple[int | float, ...]
+    time: jnp.ndarray
+    atmos_levels: jdc.Static[tuple[int | float, ...]]
     rollout_step: int = 0
 
 
@@ -52,7 +52,7 @@ class Batch:
     surf_vars: dict[str, jnp.ndarray]
     static_vars: dict[str, jnp.ndarray]
     atmos_vars: dict[str, jnp.ndarray]
-    metadata: jdc.Static[Metadata]
+    metadata: Metadata
 
     # todo remove hardcode
     _surf_vars_order: jdc.Static[tuple[str, ...]] = ("2t", "10u", "10v", "msl")

@@ -1,10 +1,10 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
 from functools import partial
+from typing import Tuple
 
 import jax
 import jax.numpy as jnp
-import torch
 from einops import rearrange
 from flax import linen as nn
 
@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 
-def unpatchify(x: torch.Tensor, V: int, H: int, W: int, P: int) -> torch.Tensor:
+def unpatchify(x: jnp.ndarray, V: int, H: int, W: int, P: int) -> jnp.ndarray:
     """Unpatchify hidden representation.
 
     Args:
@@ -29,16 +29,12 @@ def unpatchify(x: torch.Tensor, V: int, H: int, W: int, P: int) -> torch.Tensor:
     Returns:
         torch.Tensor: Unpatchified representation of shape `(B, V, C, H, W)`.
     """
-    assert x.dim() == 4, f"Expected 4D tensor, but got {x.dim()}D."
-    B, C = x.size(0), x.size(2)
-    H = H // P
-    W = W // P
-    assert x.size(1) == H * W
-    assert x.size(-1) == V * P**2
+    B, C = x.shape[0], x.shape[2]
+    h_patches = H // P
+    w_patches = W // P
 
-    x = x.reshape(shape=(B, H, W, C, P, P, V))
-    x = rearrange(x, "B H W C P1 P2 V -> B V C H P1 W P2")
-    x = x.reshape(shape=(B, V, C, H * P, W * P))
+    x = x.reshape(B, h_patches, w_patches, C, P, P, V)
+    x = rearrange(x, "B h w C p1 p2 V -> B V C (h p1) (w p2)")
     return x
 
 
@@ -88,23 +84,23 @@ def trunc_normal(std: float = 0.02, mean: float = 0.0, lower: float = -2.0, uppe
     return init
 
 
-def init_weights(m: nn.Module):
-    """Initializes weights using derived keys from a base seed."""
-    # Create fresh key sequence for this initialization
+def init_weights(
+    key: jax.random.PRNGKey, shape: Tuple[int, ...], dtype: jnp.dtype = jnp.float32
+) -> jnp.ndarray:
+    """
+    Flax initializer mimicking your original:
+      - multi‑dimensional params (e.g. kernels)  → truncated normal (σ=0.02)
+      - 1D params         (e.g. biases, LN scale/bias) → zeros
+    Use as:
+      nn.Dense(..., kernel_init=init_weights, bias_init=init_weights)
+    """
+    # fixed base seed
     base_key = jax.random.PRNGKey(0)
-
-    if isinstance(m, (nn.Dense, nn.Conv, nn.ConvTranspose)):
-        # Create unique key for this parameter shape
-        if hasattr(m, "kernel"):
-            shape_key = jax.random.fold_in(base_key, hash(tuple(m.kernel.shape)))
-            m.kernel = nn.initializers.truncated_normal(0.02)(shape_key, m.kernel.shape)
-
-        if hasattr(m, "bias") and m.bias is not None:
-            bias_key = jax.random.fold_in(base_key, hash(tuple(m.bias.shape)) + 1)
-            m.bias = nn.initializers.zeros(bias_key, m.bias.shape)
-
-    elif isinstance(m, nn.LayerNorm):
-        if hasattr(m, "scale") and m.scale is not None:
-            m.scale = nn.initializers.ones(base_key, m.scale.shape)
-        if hasattr(m, "bias") and m.bias is not None:
-            m.bias = nn.initializers.zeros(base_key, m.bias.shape)
+    # unique per‑shape key
+    shape_key = jax.random.fold_in(base_key, hash(tuple(shape)) & 0xFFFFFFFF)
+    if len(shape) > 1:
+        # weight
+        return nn.initializers.truncated_normal(stddev=0.02)(shape_key, shape, dtype)
+    else:
+        # bias or 1‑d scale
+        return jnp.zeros(shape, dtype)
