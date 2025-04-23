@@ -6,11 +6,9 @@ from typing import Callable, List
 
 import jax
 import jax.numpy as jnp
-import jax_dataclasses as jdc
 import numpy as np
-from jax import device_put
+from flax import struct
 from scipy.interpolate import RegularGridInterpolator as RGI
-from typing_extensions import dataclass_transform
 
 from aurora.normalisation import (
     normalise_atmos_var,
@@ -22,22 +20,52 @@ from aurora.normalisation import (
 __all__ = ["Metadata", "Batch"]
 
 
-@dataclass_transform(field_specifiers=(jdc.Static,))
-def pytree_dataclass(cls):
-    return jdc.pytree_dataclass(cls)
+# @dataclass_transform(field_specifiers=(jdc.Static,))
+# def pytree_dataclass(cls):
+#     return jdc.pytree_dataclass(cls)
 
 
-@pytree_dataclass
-class Metadata:
+# @pytree_dataclass
+# @struct.dataclass
+class Metadata(struct.PyTreeNode):
     lat: jnp.ndarray
     lon: jnp.ndarray
     time: jnp.ndarray
-    atmos_levels: jdc.Static[tuple[int | float, ...]]
-    rollout_step: int = 0
+    atmos_levels: tuple[int | float, ...] = struct.field(pytree_node=False)
+    rollout_step: jnp.ndarray = struct.field(
+        default_factory=lambda: jnp.array(0, dtype=jnp.int32),
+        pytree_node=True,
+    )
+
+    # def __post_init__(self):
+    #     lat_np = np.asarray(self.lat)
+    #     lon_np = np.asarray(self.lon)
+
+    #     if not ((lat_np <= 90).all() and (lat_np >= -90).all()):
+    #         raise ValueError("Latitudes must be in the range [-90, 90].")
+    #     if not ((lon_np >= 0).all() and (lon_np < 360).all()):
+    #         raise ValueError("Longitudes must be in the range [0, 360).")
+
+    #     if lat_np.ndim == lon_np.ndim == 1:
+    #         if not np.all(lat_np[1:] - lat_np[:-1] < 0):
+    #             raise ValueError("Latitudes must be strictly decreasing.")
+    #         if not np.all(lon_np[1:] - lon_np[:-1] > 0):
+    #             raise ValueError("Longitudes must be strictly increasing.")
+    #     elif lat_np.ndim == lon_np.ndim == 2:
+    #         if not np.all(lat_np[1:, :] - lat_np[:-1, :]):
+    #             raise ValueError("Latitudes must be strictly decreasing along every column.")
+    #         if not np.all(lon_np[:, 1:] - lon_np[:, :-1] > 0):
+    #             raise ValueError("Longitudes must be strictly increasing along every row.")
+    #     else:
+    #         raise ValueError(
+    #             "The latitudes and longitudes must either both be vectors or both be matrices."
+    #         )
 
 
-@pytree_dataclass
-class Batch:
+# @pytree_dataclass
+# @struct.dataclass
+# @tree_util.register_pytree_node_class
+class Batch(struct.PyTreeNode):
     """A batch of data.
 
     Args:
@@ -54,36 +82,46 @@ class Batch:
     atmos_vars: dict[str, jnp.ndarray]
     metadata: Metadata
 
-    # todo remove hardcode
-    _surf_vars_order: jdc.Static[tuple[str, ...]] = ("2t", "10u", "10v", "msl")
-    _static_vars_order: jdc.Static[tuple[str, ...]] = ("z", "slt", "lsm")
-    _atmos_vars_order: jdc.Static[tuple[str, ...]] = ("t", "u", "v", "q", "z")
-
-    # todo use aux in tree_flatten and tree_unflatten
-    # Get ordered keys methods
-    def surf_vars_ordered_keys(self):
-        return self._surf_vars_order
-
-    def static_vars_ordered_keys(self):
-        return self._static_vars_order
-
-    def atmos_vars_ordered_keys(self):
-        return self._atmos_vars_order
-
-    # Get ordered items methods
-    def surf_vars_ordered_values(self):
-        return [self.surf_vars[k] for k in self._surf_vars_order]
-
-    def static_vars_ordered_values(self):
-        return [self.static_vars[k] for k in self._static_vars_order]
-
-    def atmos_vars_ordered_values(self):
-        return [self.atmos_vars[k] for k in self._atmos_vars_order]
-
     @property
     def spatial_shape(self) -> tuple[int, int]:
         """Get the spatial shape from an arbitrary surface-level variable."""
         return next(iter(self.surf_vars.values())).shape[-2:]
+
+    def tree_flatten(self):
+        surf_keys = tuple(self.surf_vars.keys())
+        static_keys = tuple(self.static_vars.keys())
+        atmos_keys = tuple(self.atmos_vars.keys())
+
+        surf_vals = tuple(self.surf_vars[k] for k in surf_keys)
+        static_vals = tuple(self.static_vars[k] for k in static_keys)
+        atmos_vals = tuple(self.atmos_vars[k] for k in atmos_keys)
+
+        children = surf_vals + static_vals + atmos_vals + (self.metadata,)
+        aux_data = (surf_keys, static_keys, atmos_keys)
+        return list(children), aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        surf_keys, static_keys, atmos_keys = aux_data
+        n1 = len(surf_keys)
+        n2 = len(static_keys)
+        n3 = len(atmos_keys)
+
+        surf_vals = children[:n1]
+        static_vals = children[n1 : n1 + n2]
+        atmos_vals = children[n1 + n2 : n1 + n2 + n3]
+        metadata = children[-1]
+
+        surf_vars = dict(zip(surf_keys, surf_vals))
+        static_vars = dict(zip(static_keys, static_vals))
+        atmos_vars = dict(zip(atmos_keys, atmos_vals))
+
+        return cls(
+            surf_vars=surf_vars,
+            static_vars=static_vars,
+            atmos_vars=atmos_vars,
+            metadata=metadata,
+        )
 
     def normalise(self, surf_stats: dict[str, tuple[float, float]]) -> "Batch":
         """Normalise all variables in the batch.
@@ -178,7 +216,7 @@ class Batch:
     def to(self, device: str) -> "Batch":
         """Move the batch to another device."""
         device_force = jax.devices("gpu")[0] if jax.devices("gpu") else jax.devices("cpu")[0]
-        return self._fmap(lambda x: device_put(x, device_force))
+        return self._fmap(lambda x: jax.device_put(x, device_force))
 
     def type(self, dtype) -> "Batch":
         """Convert everything to type `dtype`."""

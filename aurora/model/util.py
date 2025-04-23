@@ -1,6 +1,5 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-from functools import partial
 from typing import Tuple
 
 import jax
@@ -50,7 +49,7 @@ def check_lat_lon_dtype(lat: jnp.ndarray, lon: jnp.ndarray) -> None:
     ], f"Longitudes need float32/64 for stability. Found: {lon.dtype}"
 
 
-@partial(jax.jit, static_argnums=(0, 1, 2))
+# @partial(jax.jit, static_argnums=(0, 1, 2))
 def maybe_adjust_windows(window_size, shift_size, res):
     new_ws, new_ss = [], []
     for ws, ss, r in zip(window_size, shift_size, res):

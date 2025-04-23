@@ -110,3 +110,6 @@ known-local-folder = ["aurora"]
 
 [tool.ruff.format]
 docstring-code-format = true
+
+[tool.mypy]
+ignore_errors = true

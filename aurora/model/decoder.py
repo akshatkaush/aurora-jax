@@ -96,8 +96,10 @@ class Perceiver3DDecoder(nn.Module):
         training: bool = False,
         rng: jax.random.PRNGKey = None,
     ) -> Batch:
-        surf_vars = batch.surf_vars_ordered_keys()
-        atmos_vars = batch.atmos_vars_ordered_keys()
+        # surf_vars = batch.surf_vars_ordered_keys()
+        # atmos_vars = batch.atmos_vars_ordered_keys()
+        surf_vars = tuple(batch.surf_vars.keys())
+        atmos_vars = tuple(batch.atmos_vars.keys())
         atmos_levels = batch.metadata.atmos_levels
 
         B, L, D = x.shape
@@ -133,8 +135,7 @@ class Perceiver3DDecoder(nn.Module):
         x_atmos = x_atmos.reshape((B, x.shape[1], x_atmos.shape[2], -1))
         atmos_preds = unpatchify(x_atmos, len(atmos_vars), H, W, self.patch_size)
 
-        time_array = jnp.array(batch.metadata.time)
-        new_time_array = time_array + lead_time
+        new_time_array = tuple(t + lead_time for t in batch.metadata.time)
 
         # Construct output batch
         return Batch(

@@ -126,16 +126,14 @@ class Perceiver3DEncoder(nn.Module):
     def __call__(
         self, batch: Batch, lead_time: int, training: bool, rng: Optional[jax.random.PRNGKey] = None
     ) -> jnp.ndarray:
-        # rng = jax.random.PRNGKey(0)
-        surf_vars = batch.surf_vars_ordered_keys()
-        static_vars = batch.static_vars_ordered_keys()
-        atmos_vars = batch.atmos_vars_ordered_keys()
+        surf_vars = tuple(batch.surf_vars.keys())
+        static_vars = tuple(batch.static_vars.keys())
+        atmos_vars = tuple(batch.atmos_vars.keys())
         atmos_levels = batch.metadata.atmos_levels
 
-        # todo make faster
-        x_surf = jnp.stack(batch.surf_vars_ordered_values(), axis=2)
-        x_static = jnp.stack(batch.static_vars_ordered_values(), axis=2)
-        x_atmos = jnp.stack(batch.atmos_vars_ordered_values(), axis=2)
+        x_surf = jnp.stack(list(batch.surf_vars.values()), axis=2)
+        x_static = jnp.stack(list(batch.static_vars.values()), axis=2)
+        x_atmos = jnp.stack(list(batch.atmos_vars.values()), axis=2)
 
         B, T, _, C, H, W = x_atmos.shape
         assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."

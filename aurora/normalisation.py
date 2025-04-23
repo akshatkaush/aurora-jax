@@ -35,7 +35,7 @@ def normalise_surf_var(
 def normalise_atmos_var(
     x: jax.Array,
     name: str,
-    atmos_levels: tuple[int | float, ...],
+    atmos_levels: jnp.ndarray,
     unnormalise: bool = False,
 ) -> jax.Array:
     """Normalise an atmospheric variable."""

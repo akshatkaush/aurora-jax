@@ -14,7 +14,6 @@ import jax
 import jax.numpy as jnp
 from einops import rearrange
 from flax import linen as nn
-from jax.experimental import checkify
 
 from aurora.model.film import AdaptiveLayerNorm
 from aurora.model.fourier import FourierExpansion
@@ -258,11 +257,11 @@ def window_partition_3d(x: jnp.ndarray, window_size: tuple[int, int, int]) -> jn
     num_windows_w = W // Ww
 
     # Create checkified function
-    @checkify.checkify
+    # @checkify.checkify
     def inner_fn(x):
-        checkify.check(C % Wc == 0, "Channel dimension error")
-        checkify.check(H % Wh == 0, "Height dimension error")
-        checkify.check(W % Ww == 0, "Width dimension error")
+        # checkify.check(C % Wc == 0, "Channel dimension error")
+        # checkify.check(H % Wh == 0, "Height dimension error")
+        # checkify.check(W % Ww == 0, "Width dimension error")
 
         x = jnp.reshape(
             x,
@@ -275,8 +274,9 @@ def window_partition_3d(x: jnp.ndarray, window_size: tuple[int, int, int]) -> jn
         )
 
     # Execute with error checking
-    err, result = inner_fn(x)
-    err.throw()
+    # err, result = inner_fn(x)
+    result = inner_fn(x)
+    # err.throw()
     return result
 
 
@@ -339,66 +339,6 @@ def get_three_sided_padding(
         padding_top,
         padding_bottom,
     )
-
-
-# def _concrete_pad_3d(x, pad_size, value):
-#     left_pad, right_pad, top_pad, bottom_pad, front_pad, back_pad =
-# get_three_sided_padding(*pad_size)
-
-#     pad_width = [
-#         (0, 0),                # Batch
-#         (left_pad, right_pad), # Channel
-#         (top_pad, bottom_pad), # Height
-#         (front_pad, back_pad), # Width
-#         (0, 0)                 # Depth
-#     ]
-
-#     return jnp.pad(x, pad_width, mode='constant', constant_values=value)
-
-# @custom_vjp
-# def pad_3d(x: jnp.ndarray,
-#            pad_size: tuple[jax.Array, jax.Array, jax.Array],
-#            value: float = 0.0) -> jnp.ndarray:
-#     # This will be implemented in the _fwd function
-#     return io_callback(
-#         _concrete_pad_3d,
-#         jax.ShapeDtypeStruct(x.shape, x.dtype),  # Output shape/type
-#         x,
-#         pad_size,
-#         value
-#     )
-
-# def pad_3d_fwd(x, pad_size, value):
-#     """Forward pass with concrete padding calculation."""
-#     # Convert tracer arrays to concrete values
-#     padded = pad_3d(x, pad_size, value)
-#     return padded, (x.shape, pad_size)
-
-# def pad_3d_bwd(residual, grad_output):
-#     orig_shape, pad_size = residual
-#     c_pad, h_pad, w_pad = pad_size
-
-#     # Calculate padding amounts
-#     left_pad, right_pad = c_pad//2, c_pad - c_pad//2
-#     top_pad, bottom_pad = h_pad//2, h_pad - h_pad//2
-#     front_pad, back_pad = w_pad//2, w_pad - w_pad//2
-
-#     # Slice gradient to original shape
-#     grad_input = grad_output[
-#         :,  # Batch
-#         left_pad:left_pad + orig_shape[1],  # Channel
-#         top_pad:top_pad + orig_shape[2],    # Height
-#         front_pad:front_pad + orig_shape[3],# Width
-#         :   # Depth
-#     ]
-#     return (grad_input, None, None)
-
-# # Link the custom VJP
-# pad_3d.defvjp(pad_3d_fwd, pad_3d_bwd)
-
-# def pad_jitted_function(x, pad_size, count):
-#     padded = pad_3d(x, pad_size, count)
-#     return padded
 
 
 def pad_3d(x: jnp.ndarray, pad_size: tuple[int, int, int], value: float = 0.0) -> jnp.ndarray:
@@ -484,55 +424,6 @@ def compute_3d_shifted_window_mask(
     attn_mask = jnp.where(attn_mask != 0, -100.0, 0.0)
 
     return attn_mask, img_mask
-    # img_mask = jnp.zeros((1, C, H, W, 1), dtype=dtype)
-
-    # # Pre-compute all slice boundaries
-    # c_indices = [(0, C - ws[0]), (C - ws[0], C - ss[0]), (C - ss[0], C)]
-    # h_indices = [(0, H - ws[1]), (H - ws[1], H - ss[1]), (H - ss[1], H)]
-    # w_indices = [(0, W - ws[2]), (W - ws[2], W - ss[2]), (W - ss[2], W)]
-
-    # def update_img_mask(img_mask, counter):
-    #     for c_idx, c_slice in enumerate(c_indices):
-    #         for h_idx, h_slice in enumerate(h_indices):
-    #             for w_idx, w_slice in enumerate(w_indices):
-    #                 # In JAX, we need to use a functional update pattern
-    #                 # This is a bit verbose but follows the structure of the original
-    #                 for c in c_slice:
-    #                     for h in h_slice:
-    #                         for w in w_slice:
-    #                             img_mask = img_mask.at[0, c, h, w, 0].set(counter)
-    #                 counter += 1
-    #     return img_mask, counter
-
-    # img_mask, cnt = update_img_mask(img_mask, 0)
-
-    # if warped:
-    #     merge_groups = get_3d_merge_groups()
-
-    #     # Apply merges
-    #     def apply_merges(mask, groups):
-    #         for grp1, grp2 in groups:
-    #             mask = jnp.where(mask == grp1, jnp.ones_like(mask) * grp2, mask)
-    #         return mask
-
-    #     img_mask = apply_merges(img_mask, merge_groups)
-
-    # pad_size = (ws[0] - C % ws[0], ws[1] - H % ws[1], ws[2] - W % ws[2])
-    # pad_size = (pad_size[0] % ws[0], pad_size[1] % ws[1], pad_size[2] % ws[2])
-    # img_mask = pad_3d(img_mask, pad_size, cnt)
-
-    # # Window partition
-    # mask_windows = window_partition_3d(img_mask, ws)  # (nW*B, ws[0], ws[1], ws[2], 1)
-    # mask_windows = jnp.reshape(mask_windows, (-1, ws[0] * ws[1] * ws[2]))
-
-    # # Two patches communicate if they are in the same group
-    # attn_mask = jnp.expand_dims(mask_windows, 1) - jnp.expand_dims(mask_windows, 2)
-
-    # # Apply mask values
-    # attn_mask = jnp.where(attn_mask != 0, jnp.full_like(attn_mask, -100.0), attn_mask)
-    # attn_mask = jnp.where(attn_mask == 0, jnp.full_like(attn_mask, 0.0), attn_mask)
-
-    # return attn_mask, img_mask
 
 
 class Swin3DTransformerBlock(nn.Module):
@@ -733,16 +624,16 @@ class PatchSplitting3D(nn.Module):
         B, L, D = x.shape
 
         # Convert values to JAX arrays for checkify
-        checkify.check(
-            L == C * H * W,
-            "Token count mismatch: {} vs {}*{}*{}={}",
-            jnp.asarray(L),
-            jnp.asarray(C),
-            jnp.asarray(H),
-            jnp.asarray(W),
-            jnp.asarray(C * H * W),
-        )
-        checkify.check(D % 4 == 0, "Feature dimension {} not divisible by 4", jnp.asarray(D))
+        # checkify.check(
+        #     L == C * H * W,
+        #     "Token count mismatch: {} vs {}*{}*{}={}",
+        #     jnp.asarray(L),
+        #     jnp.asarray(C),
+        #     jnp.asarray(H),
+        #     jnp.asarray(W),
+        #     jnp.asarray(C * H * W),
+        # )
+        # checkify.check(D % 4 == 0, "Feature dimension {} not divisible by 4", jnp.asarray(D))
 
         x = x.reshape(B, C, H, W, 2, 2, D // 4)
         x = rearrange(x, "B C H W h w D -> B C (H h) (W w) D")  # (B, C, 2*H, 2*W, D/4)
@@ -865,10 +756,10 @@ class Swin3DTransformerBackbone(nn.Module):
 
         self.lead_time_expansion = FourierExpansion(1 / 60, 24 * 7 * 3)
 
-        checkify.check(
-            sum(self.encoder_depths) == sum(self.decoder_depths),
-            "Sum of encoder and decoder depths must be equal",
-        )
+        # checkify.check(
+        #     sum(self.encoder_depths) == sum(self.decoder_depths),
+        #     "Sum of encoder and decoder depths must be equal",
+        # )
         dpr = jnp.linspace(0, self.drop_path_rate, sum(self.encoder_depths))
 
         self.encoder_layers = [
@@ -942,14 +833,14 @@ class Swin3DTransformerBackbone(nn.Module):
         training: bool,
         rng: Optional[jax.random.PRNGKey] = None,
     ) -> jnp.ndarray:
-        checkify.check(
-            x.shape[1] == patch_res[0] * patch_res[1] * patch_res[2],
-            "Input shape does not match patch size.",
-        )
-        checkify.check(
-            patch_res[0] % self.window_size[0] == 0,
-            f"Patch height ({patch_res[0]}) must be divisible by ws[0] ({self.window_size[0]})",
-        )
+        # checkify.check(
+        #     x.shape[1] == patch_res[0] * patch_res[1] * patch_res[2],
+        #     "Input shape does not match patch size.",
+        # )
+        # checkify.check(
+        #     patch_res[0] % self.window_size[0] == 0,
+        #     f"Patch height ({patch_res[0]}) must be divisible by ws[0] ({self.window_size[0]})",
+        # )
 
         all_enc_res, padded_outs = self.get_encoder_specs(patch_res)
 

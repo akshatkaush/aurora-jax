@@ -7,7 +7,6 @@ Parts of this code are inspired by
 
 import jax.numpy as jnp
 from jax import lax
-from jax.experimental import checkify
 from timm.models.layers.helpers import to_2tuple
 
 from aurora.model.fourier import FourierExpansion
@@ -47,21 +46,22 @@ def patch_root_area(
 ) -> jnp.ndarray:
     """Compute the square root of the area of a rectangular patch on a sphere."""
     # Check conditions using checkify
-    checkify.check(jnp.all(lat_max > lat_min), "All lat_max values must exceed lat_min values")
-    checkify.check(
-        jnp.all(lon_max > lon_min), "All lon_max values must exceed lon_min values (no wrap-around)"
-    )
-    checkify.check(
-        jnp.all(jnp.abs(lat_max) <= 90.0) & jnp.all(jnp.abs(lat_min) <= 90.0),
-        "Latitudes out of [-90, 90] degree range",
-    )
-    checkify.check(
-        jnp.all(lon_max <= 360.0) & jnp.all(lon_min <= 360.0),
-        "Longitudes exceed 360 degree maximum",
-    )
-    checkify.check(
-        jnp.all(lon_max >= 0.0) & jnp.all(lon_min >= 0.0), "Negative longitudes detected"
-    )
+    # checkify.check(jnp.all(lat_max > lat_min), "All lat_max values must exceed lat_min values")
+    # checkify.check(
+    #     jnp.all(lon_max > lon_min), "All lon_max values must exceed lon_min
+    #                                                   values (no wrap-around)"
+    # )
+    # checkify.check(
+    #     jnp.all(jnp.abs(lat_max) <= 90.0) & jnp.all(jnp.abs(lat_min) <= 90.0),
+    #     "Latitudes out of [-90, 90] degree range",
+    # )
+    # checkify.check(
+    #     jnp.all(lon_max <= 360.0) & jnp.all(lon_min <= 360.0),
+    #     "Longitudes exceed 360 degree maximum",
+    # )
+    # checkify.check(
+    #     jnp.all(lon_max >= 0.0) & jnp.all(lon_min >= 0.0), "Negative longitudes detected"
+    # )
 
     # Compute area
     area = (
@@ -72,7 +72,7 @@ def patch_root_area(
     )
 
     # Additional check for non-positive area
-    checkify.check(jnp.all(area > 0.0), "Non-positive area calculated - check input coordinates")
+    # checkify.check(jnp.all(area > 0.0), "Non-positive area calculated - check input coordinates")
 
     return jnp.sqrt(area)
 

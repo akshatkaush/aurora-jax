@@ -1,13 +1,13 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
-import dataclasses
+from functools import partial
+from timeit import timeit
 from typing import Generator
 
 import jax
 import jax.numpy as jnp
-from jax.experimental import checkify
 
-from aurora.batch import Batch
+from aurora.batch import Batch, Metadata
 from aurora.model.aurora import Aurora
 
 __all__ = ["rollout"]
@@ -16,37 +16,76 @@ __all__ = ["rollout"]
 def rollout(
     model: Aurora, batch: Batch, steps: int, params, training: bool, rng
 ) -> Generator[Batch, None, None]:
-    """Perform a roll-out to make long-term predictions.
-
-    Args:
-        model (:class:`aurora.model.aurora.Aurora`): The model to roll out.
-        batch (:class:`aurora.batch.Batch`): The batch to start the roll-out from.
-        steps (int): The number of roll-out steps.
-
-    Yields:
-        :class:`aurora.batch.Batch`: The prediction after every step.
-    """
-    # We will need to concatenate data, so ensure that everything is already of the right form.
-    # Use an arbitary parameter of the model to derive the data type and device.
-    # p = next(model.parameters())
-    # batch = batch.type(p.dtype)
+    """Perform a roll-out to make long-term predictions."""
     batch = batch.crop(model.patch_size)
-    # batch = batch.to(p.device)
-    checked_apply = checkify.checkify(model.apply)
-    step_fn = jax.jit(
-        lambda batch, rng: checked_apply({"params": params}, batch, training=training, rng=rng)
+    rng, key = jax.random.split(rng)
+    mock_batch = Batch(
+        surf_vars={
+            k: jax.random.normal(jax.random.split(key, 4)[i], (1, 2, 720, 1440)).astype(jnp.float32)
+            for i, k in enumerate(("2t", "10u", "10v", "msl"))
+        },
+        static_vars={
+            k: jax.random.normal(jax.random.split(key, 3)[i], (720, 1440)).astype(jnp.float32)
+            for i, k in enumerate(("z", "slt", "lsm"))
+        },
+        atmos_vars={
+            k: jax.random.normal(jax.random.split(key, 5)[i], (1, 2, 13, 720, 1440)).astype(
+                jnp.float32
+            )
+            for i, k in enumerate(("t", "u", "v", "q", "z"))
+        },
+        metadata=Metadata(
+            lat=jnp.linspace(90, -90, 720).astype(jnp.float32),
+            lon=jnp.linspace(0, 360, 1440 + 1)[:-1].astype(jnp.float32),
+            time=(jnp.array((1672570800), dtype=jnp.int64),),
+            atmos_levels=(1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50),
+        ),
     )
+    apply_with_params = partial(model.apply, {"params": params}, training=False)
+    jitted_function = jax.jit(apply_with_params)
+    _ = jitted_function(mock_batch, rng=rng)
+    jax.tree_util.tree_map(lambda x: x.block_until_ready(), mock_batch)
 
+    timed_batch = batch
+    timed_rng = rng
+
+    def one_step():
+        nonlocal timed_batch, timed_rng
+        # split RNG, run model, then block until ready
+        for _ in range(steps):
+            timed_rng, step_rng = jax.random.split(timed_rng, 2)
+            pred = jitted_function(timed_batch, rng=step_rng)
+            # jax.tree_util.tree_map(lambda x: x.block_until_ready(), pred)
+            # _ = pred.surf_vars["2t"][0, 0, 0, 0].block_until_ready()
+            # update batch so next call uses the new state
+            timed_batch = pred.replace(
+                surf_vars={
+                    k: jnp.concatenate([timed_batch.surf_vars[k][:, 1:], v], axis=1)
+                    for k, v in pred.surf_vars.items()
+                },
+                atmos_vars={
+                    k: jnp.concatenate([timed_batch.atmos_vars[k][:, 1:], v], axis=1)
+                    for k, v in pred.atmos_vars.items()
+                },
+            )
+
+    n_iters = 20
+    total_sec = timeit(one_step, number=n_iters)
+    avg_ms = total_sec * 1000.0 / n_iters
+    print(f"Average single-step time over {n_iters} runs: {avg_ms:.2f} ms")
+
+    # temp_batch = batch
+    # n_iters = 20
+    # start = time.time()
+    # for _ in range(n_iters):
+    # batch = temp_batch
     for _ in range(steps):
-        rng, step_rng = jax.random.split(rng)
-        err, pred = step_fn(batch, step_rng)
-        err.throw()
-        # pred = model.apply({"params": params}, batch, training=training, rng=rng)
-
+        rng, step_rng = jax.random.split(rng, 2)
+        pred = jitted_function(batch, rng=step_rng)
+        # pred = model.apply({"params": params}, batch, training=training, rng=step_rng)
+        # err.throw()
         yield pred
-        batch = dataclasses.replace(
-            # Add the appropriate history so the model can be run on the prediction.
-            pred,
+        batch = pred.replace(
             surf_vars={
                 k: jnp.concatenate([batch.surf_vars[k][:, 1:], v], axis=1)
                 for k, v in pred.surf_vars.items()
@@ -56,3 +95,6 @@ def rollout(
                 for k, v in pred.atmos_vars.items()
             },
         )
+    # end = time.time()
+    # avg_ms = (end - start) * 1000.0/ n_iters
+    # print(f"Average single-step time over {n_iters} runs: {avg_ms:.2f} ms")

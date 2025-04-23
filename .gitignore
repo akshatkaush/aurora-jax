@@ -39,3 +39,4 @@ shardingStoreTemp/
 mlflow_tmp/
 aurora_mlflow_pyfunc/
 mlruns/
+outputs/
