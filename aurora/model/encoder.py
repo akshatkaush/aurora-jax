@@ -20,6 +20,7 @@ from aurora.model.util import (
 __all__ = ["Perceiver3DEncoder"]
 
 
+# todo: add init_weights to encoder
 class Perceiver3DEncoder(nn.Module):
     surf_vars_temp: tuple[str, ...]
     static_vars: tuple[str, ...] | None
@@ -108,7 +109,7 @@ class Perceiver3DEncoder(nn.Module):
         self.pos_drop = nn.Dropout(self.drop_rate)
         # self.apply(init_weights)
 
-    def aggregate_levels(self, x: jnp.ndarray) -> jnp.ndarray:
+    def aggregate_levels(self, x: jnp.ndarray, training) -> jnp.ndarray:
         B, _, L, _ = x.shape
         C_A, D = self.atmos_latents.shape
         latents = self.atmos_latents.astype(x.dtype)
@@ -119,7 +120,7 @@ class Perceiver3DEncoder(nn.Module):
         x = x.reshape(B * L, -1, self.embed_dim)
         latents = jnp.einsum("bcld->blcd", latents).reshape(B * L, -1, self.embed_dim)
 
-        x = self.level_agg(latents, x)
+        x = self.level_agg(latents, x, deterministic=not training)
         x = x.reshape(B, L, -1, self.embed_dim)
         return jnp.einsum("blcd->bcld", x)
 
@@ -136,7 +137,7 @@ class Perceiver3DEncoder(nn.Module):
         x_atmos = jnp.stack(list(batch.atmos_vars.values()), axis=2)
 
         B, T, _, C, H, W = x_atmos.shape
-        assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
+        # assert x_surf.shape[:2] == (B, T), f"Expected shape {(B, T)}, got {x_surf.shape[:2]}."
         if self.static_vars is None:
             assert x_static is None, "Static variables given, but not configured."
         else:
@@ -162,7 +163,7 @@ class Perceiver3DEncoder(nn.Module):
         # Add surface level encoding
         x_surf = x_surf + self.surf_level_encoding[None, None, :].astype(dtype)
         # Add Perceiver-like MLP for surface level
-        x_surf = x_surf + self.surf_norm(self.surf_mlp(x_surf))
+        x_surf = x_surf + self.surf_norm(self.surf_mlp(x_surf, deterministic=not training))
 
         # Add atmospheric pressure encoding
         atmos_levels_tensor = jnp.array(atmos_levels, dtype=jnp.float32)
@@ -172,7 +173,7 @@ class Perceiver3DEncoder(nn.Module):
         x_atmos = x_atmos + atmos_levels_embed  # (B, C_A, L, D)
 
         # Aggregate over pressure levels.
-        x_atmos = self.aggregate_levels(x_atmos)  # (B, C_A, L, D) to (B, C, L, D)
+        x_atmos = self.aggregate_levels(x_atmos, training)  # (B, C_A, L, D) to (B, C, L, D)
 
         # Concatenate the surface level with the atmospheric levels
         x_surf_expanded = jnp.expand_dims(x_surf, 1)
@@ -209,5 +210,5 @@ class Perceiver3DEncoder(nn.Module):
         absolute_time_embed = self.absolute_time_embed(absolute_time_encode.astype(dtype))
         x = x + jnp.expand_dims(absolute_time_embed, 1)  # (B, L, D) + (B, 1, D)
 
-        x = self.pos_drop(x, deterministic=True)
+        x = self.pos_drop(x, deterministic=not training)
         return x

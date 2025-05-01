@@ -172,69 +172,37 @@ class WindowAttention(nn.Module):
 
             # 6) build additive bias: [1, nW, 1, window_len, window_len]
             bias = mask[jnp.newaxis, :, jnp.newaxis, :, :]
-
-            # call Flax’s dot_product_attention
-            x = jax.lax.cond(
-                training,
-                lambda: nn.dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    bias=bias,
-                    dropout_rate=self.attn_drop,
-                    deterministic=False,
-                    dropout_rng=attn_rng,
-                    precision="highest",
-                    dtype=q.dtype,
-                ),
-                lambda: nn.dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    bias=bias,
-                    dropout_rate=0.0,
-                    deterministic=True,
-                    dropout_rng=attn_rng,
-                    precision="highest",
-                    dtype=q.dtype,
-                ),
+            x = nn.dot_product_attention(
+                query=q,
+                key=k,
+                value=v,
+                bias=bias,
+                dropout_rate=self.attn_drop,
+                deterministic=not training,
+                dropout_rng=attn_rng,
+                precision="highest",
+                dtype=q.dtype,
             )
 
             # back to [B*nW, H, N, D]
             x = rearrange(x, "B nW H N D -> (B nW) H N D")
         else:
-            # todo add scale
-            x = jax.lax.cond(
-                training,
-                lambda: nn.dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    dropout_rate=self.attn_drop,
-                    deterministic=False,
-                    precision="highest",
-                    dtype=q.dtype,
-                    dropout_rng=attn_rng,
-                ),
-                lambda: nn.dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    dropout_rate=0.0,
-                    deterministic=True,
-                    precision="highest",
-                    dtype=q.dtype,
-                    dropout_rng=attn_rng,
-                ),
+            x = nn.dot_product_attention(
+                query=q,
+                key=k,
+                value=v,
+                dropout_rate=self.attn_drop,
+                deterministic=not training,
+                dropout_rng=attn_rng,
+                precision="highest",
+                dtype=q.dtype,
             )
 
         x = jnp.transpose(x, (0, 2, 1, 3))
 
         x = rearrange(x, "B H N D -> B N (H D)")
         x = self.proj(x) + self.lora_proj(x, rollout_step)
-
         x = self.proj_drop_layer(x, deterministic=~training)
-
         return x
 
     def __repr__(self):
@@ -246,38 +214,11 @@ class WindowAttention(nn.Module):
 
 
 def window_partition_3d(x: jnp.ndarray, window_size: tuple[int, int, int]) -> jnp.ndarray:
-    """JIT-compatible 3D window partitioning with static shape validation."""
-    # Extract static dimensions from window_size
-    Wc, Wh, Ww = window_size
-
-    # Precompute static output shape parts
     B, C, H, W, D = x.shape
-    num_windows_c = C // Wc
-    num_windows_h = H // Wh
-    num_windows_w = W // Ww
-
-    # Create checkified function
-    # @checkify.checkify
-    def inner_fn(x):
-        # checkify.check(C % Wc == 0, "Channel dimension error")
-        # checkify.check(H % Wh == 0, "Height dimension error")
-        # checkify.check(W % Ww == 0, "Width dimension error")
-
-        x = jnp.reshape(
-            x,
-            (B, num_windows_c, Wc, num_windows_h, Wh, num_windows_w, Ww, D),
-        )
-        x = x.transpose(0, 1, 3, 5, 2, 4, 6, 7)
-        return jnp.reshape(
-            x,
-            (-1, Wc, Wh, Ww, D),
-        )
-
-    # Execute with error checking
-    # err, result = inner_fn(x)
-    result = inner_fn(x)
-    # err.throw()
-    return result
+    Wc, Wh, Ww = window_size
+    x = x.reshape(B, C // Wc, Wc, H // Wh, Wh, W // Ww, Ww, D)
+    windows = rearrange(x, "B C1 Wc H1 Wh W1 Ww D -> (B C1 H1 W1) Wc Wh Ww D")
+    return windows
 
 
 def window_reverse_3d(windows, window_size, C, H, W):
@@ -346,7 +287,7 @@ def pad_3d(x: jnp.ndarray, pad_size: tuple[int, int, int], value: float = 0.0) -
     padding = get_three_sided_padding(*pad_size)
     pad_width = (
         (0, 0),
-        (padding[0], padding[0]),
+        (padding[0], padding[1]),
         (padding[4], padding[5]),
         (padding[2], padding[3]),
         (0, 0),
@@ -389,7 +330,6 @@ def compute_3d_shifted_window_mask(
     warped: bool = True,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """JAX implementation of 3D shifted window attention mask"""
-
     img_mask = jnp.zeros((1, C, H, W, 1), dtype=dtype)
 
     # Define slices using original logic
@@ -397,12 +337,9 @@ def compute_3d_shifted_window_mask(
     h_slices = ((0, H - ws[1]), (H - ws[1], H - ss[1]), (H - ss[1], H))
     w_slices = ((0, W - ws[2]), (W - ws[2], W - ss[2]), (W - ss[2], W))
 
-    slices = list(itertools.product(c_slices, h_slices, w_slices))
     cnt = 0
-
-    for (cs, ce), (hs, he), (ws_, we) in slices:
-        patch = jnp.full((1, ce - cs, he - hs, we - ws_, 1), cnt, dtype=dtype)
-        img_mask = jax.lax.dynamic_update_slice(img_mask, patch, (0, cs, hs, ws_, 0))
+    for c, h, w in itertools.product(c_slices, h_slices, w_slices):
+        img_mask = img_mask.at[:, c, h, w, :].set(cnt)
         cnt += 1
 
     if warped:
@@ -571,7 +508,7 @@ class Swin3DTransformerBlock(nn.Module):
 class PatchMerging3D(nn.Module):
     """Patch merging layer maintaining original structure with JAX optimizations."""
 
-    dim: int  # Feature dimension
+    dim: int
 
     def setup(self):
         self.reduction = nn.Dense(2 * self.dim, use_bias=False)
@@ -848,7 +785,6 @@ class Swin3DTransformerBackbone(nn.Module):
         lead_times = lead_hours * jnp.ones(x.shape[0], dtype=jnp.float32)
         time_embed = jnp.asarray(self.lead_time_expansion(lead_times, self.embed_dim))
 
-        # Now use your time_mlp on the precomputed embedding
         c = self.time_mlp(time_embed)
 
         skips = []

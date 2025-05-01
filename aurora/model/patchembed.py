@@ -27,7 +27,6 @@ class LevelPatchEmbed(nn.Module):
         """Initialize the module parameters."""
         self.kernel_size = (self.history_size,) + to_2tuple(self.patch_size)
 
-        # Initialize weights for each variable
         self.weights = flax.core.FrozenDict(
             {
                 name: self.param(
@@ -37,10 +36,7 @@ class LevelPatchEmbed(nn.Module):
             }
         )
 
-        # Initialize bias
         self.bias = self.param("bias", self._bias_init, (self.embed_dim,))
-
-        # Set up normalization layer
         self.norm = self.norm_layer(self.embed_dim) if self.norm_layer else lambda x: x
 
     def _weight_init(self, key, shape, dtype=jnp.float32):
@@ -50,7 +46,6 @@ class LevelPatchEmbed(nn.Module):
         bound = math.sqrt(6 / fan_in)  # equivalent to kaiming_uniform with a=sqrt(5)
         return jax.random.uniform(key, shape, dtype, minval=-bound, maxval=bound)
 
-    # todo:  Kaiming/He initialization for the bias? what is this, copied, check.
     def _bias_init(self, key, shape, dtype=jnp.float32):
         """Initialize bias using uniform distribution."""
         # Get fan_in from the first weight (all weights have the same fan_in)
@@ -111,5 +106,4 @@ class LevelPatchEmbed(nn.Module):
             # Transpose to (B, L, D)
             proj = jnp.transpose(proj, (0, 2, 1))
 
-        # Apply normalization
         return self.norm(proj)

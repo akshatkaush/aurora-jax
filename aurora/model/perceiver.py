@@ -56,8 +56,7 @@ These files are licenced under respectively the following two licences:
     SOFTWARE.
 """
 
-from typing import Optional
-
+import jax
 import jax.numpy as jnp
 from einops import rearrange
 from flax import linen as nn
@@ -76,9 +75,9 @@ class MLP(nn.Module):
     def __call__(self, x, deterministic=True):
         """Run the MLP."""
         x = nn.Dense(features=self.hidden_features)(x)
-        x = nn.gelu(x)
+        x = jax.nn.gelu(x)
         x = nn.Dense(features=self.dim)(x)
-        x = nn.Dropout(rate=self.dropout, deterministic=deterministic)(x)
+        x = nn.Dropout(rate=self.dropout)(x, deterministic=deterministic)
         return x
 
 
@@ -103,7 +102,7 @@ class PerceiverAttention(nn.Module):
             self.ln_k = lambda x: x
             self.ln_q = lambda x: x
 
-    def __call__(self, latents, x, deterministic: Optional[bool] = None):
+    def __call__(self, latents, x):
         """Run the cross-attention module.
 
         Args:
@@ -115,35 +114,27 @@ class PerceiverAttention(nn.Module):
             Latent values of shape (B, L1, Latent_D)
         """
         h = self.num_heads
-
-        # Project queries from latents
         q = self.to_q(latents)  # (B, L1, inner_dim)
 
-        # Project keys and values from context
         kv = self.to_kv(x)  # (B, L2, inner_dim*2)
         k, v = jnp.split(kv, 2, axis=-1)  # Each (B, L2, inner_dim)
 
-        # Apply layer normalization
         k = self.ln_k(k)
         q = self.ln_q(q)
 
         # Reshape to separate heads: (B, L, inner_dim) -> (B, L, h, head_dim) -> (B, h, L, head_dim)
         batch_size = q.shape[0]
-        q_reshaped = q.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
-        k_reshaped = k.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
-        v_reshaped = v.reshape(batch_size, -1, h, self.head_dim).transpose(0, 1, 2, 3)
+        q_reshaped = q.reshape(batch_size, -1, h, self.head_dim)
+        k_reshaped = k.reshape(batch_size, -1, h, self.head_dim)
+        v_reshaped = v.reshape(batch_size, -1, h, self.head_dim)
 
-        # Use JAX's dot_product_attention function
         out = nn.dot_product_attention(
             q_reshaped,
             k_reshaped,
             v_reshaped,
         )
-
         # Reshape back: (B, h, L1, head_dim) -> (B, L1, h, head_dim) -> (B, L1, inner_dim)
         out = rearrange(out, "B L1 H D -> B L1 (H D)")
-
-        # Project to output dimension
         return self.to_out(out)
 
 
@@ -199,15 +190,15 @@ class PerceiverResampler(nn.Module):
             )
         self.layers = layers
 
-    def __call__(self, latents, x):
+    def __call__(self, latents, x, deterministic: bool = True):
         """Run the module.
 
         Args:
-            latents (:class:`torch.Tensor`): Latent features of shape `(B, L1, D1)`.
-            x (:class:`torch.Tensor`): Context features of shape `(B, L2, D1)`.
+            latents (:class:`jnp.ndarray`): Latent features of shape `(B, L1, D1)`.
+            x (:class:`jnp.ndarray`): Context features of shape `(B, L2, D1)`.
 
         Returns:
-            torch.Tensor: Latent features of shape `(B, L1, D1)`.
+            jnp.ndarray: Latent features of shape `(B, L1, D1)`.
         """
         for attn, ff, ln1, ln2 in self.layers:
             # We use post-res-norm like in Swin v2 and most Transformer architectures these days.
@@ -219,5 +210,6 @@ class PerceiverResampler(nn.Module):
             #   https://github.com/huggingface/transformers/blob/v4.35.2/src/transformers/models/perceiver/modeling_perceiver.py#L398
             #
             latents = attn_out + latents if self.residual_latent else attn_out
-            latents = ln2(ff(latents)) + latents
+            f_out = ff(latents, deterministic=deterministic)
+            latents = ln2(f_out) + latents
         return latents

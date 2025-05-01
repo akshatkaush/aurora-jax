@@ -1,5 +1,6 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
+import contextlib
 import dataclasses
 import warnings
 from functools import partial
@@ -152,10 +153,7 @@ class Aurora(nn.Module):
         # Save the NumPy array to a file
         # np.save('../tempData/arrayJax.npy', numpy_array)
 
-        if rng is not None:
-            rng, encoder_rng, backbone_rng = jax.random.split(rng, 3)
-        else:
-            encoder_rng = backbone_rng = None
+        rng, encoder_rng, backbone_rng, decoder_rng = jax.random.split(rng, 4)
 
         # start = time.time()
         x = self.encoder(
@@ -168,17 +166,17 @@ class Aurora(nn.Module):
         # jax.debug.print(f"Encoder time: {(end - start) * 1000:.2f} ms")
 
         # start = time.time()
-        # with jax.default_device(
-        #     jax.devices("gpu")[0]
-        # ) if self.autocast else contextlib.nullcontext():
-        x = self.backbone(
-            x,
-            lead_time=self.timestep,
-            patch_res=patch_res,
-            rollout_step=batch.metadata.rollout_step,
-            training=training,
-            rng=backbone_rng,
-        )
+        with jax.default_device(
+            jax.devices("gpu")[0]
+        ) if self.autocast else contextlib.nullcontext():
+            x = self.backbone(
+                x,
+                lead_time=self.timestep,
+                patch_res=patch_res,
+                rollout_step=batch.metadata.rollout_step,
+                training=training,
+                rng=backbone_rng,
+            )
         # end = time.time()
         # jax.debug.print(f"Backbone time: {(end - start) * 1000:.2f} ms")
         # print("backbone printing")
@@ -190,7 +188,7 @@ class Aurora(nn.Module):
             lead_time=self.timestep,
             patch_res=patch_res,
             training=training,
-            rng=backbone_rng,
+            rng=decoder_rng,
         )
         # end = time.time()
         # jax.debug.print(f"Decoder time: {(end - start) * 1000:.2f} ms")
@@ -209,6 +207,7 @@ class Aurora(nn.Module):
         )
 
         pred = pred.unnormalise(surf_stats=self.surf_stats)
+        # print("compilation done")
         return pred
         # return x
 

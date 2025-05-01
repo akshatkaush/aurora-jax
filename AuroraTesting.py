@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import orbax.checkpoint as ocp
 import xarray as xr
+from jax.tree_util import tree_leaves
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
 
@@ -18,7 +19,6 @@ def plot_all_vars(
     at time-step t_idx, showing only pressure level level_idx for atmos_vars.
     Saves to out_path.
     """
-    # 1) compute lon/lat extent & aspect
     lons = np.asarray(batch.metadata.lon)
     lats = np.asarray(batch.metadata.lat)
     extent = [lons.min(), lons.max(), lats.min(), lats.max()]
@@ -31,7 +31,6 @@ def plot_all_vars(
 
     fig, axes = plt.subplots(2, n_cols, figsize=(4 * n_cols, 8), constrained_layout=True)
 
-    # helper to convert JAX arrays to NumPy
     def to_np(x):
         return np.asarray(x)
 
@@ -40,7 +39,7 @@ def plot_all_vars(
         ax = axes[0, j]
         im = ax.imshow(
             data,
-            origin="upper",  # north is up
+            origin="upper",
             extent=extent,
             aspect=aspect,
         )
@@ -49,10 +48,9 @@ def plot_all_vars(
     for j in range(n_surf, n_cols):
         axes[0, j].axis("off")
 
-    # 3) plot atmos_vars on row 1 (first pressure level)
     levels = batch.metadata.atmos_levels
     for j, name in enumerate(atmos_keys):
-        arr = to_np(batch.atmos_vars[name][0, t_idx])  # shape (levels, lat, lon)
+        arr = to_np(batch.atmos_vars[name][0, t_idx])
         data = arr[level_idx]
         ax = axes[1, j]
         im = ax.imshow(
@@ -66,7 +64,6 @@ def plot_all_vars(
     for j in range(n_atmos, n_cols):
         axes[1, j].axis("off")
 
-    # 4) shared horizontal colorbar
     fig.colorbar(
         im,
         ax=axes.ravel().tolist(),
@@ -76,7 +73,6 @@ def plot_all_vars(
         label="variable value",
     )
 
-    # 5) save & show
     out_p = Path(out_path)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_p, dpi=300, bbox_inches="tight")
@@ -129,9 +125,6 @@ batch = Batch(
     ),
 )
 model = AuroraSmall(use_lora=False)
-rng = jax.random.PRNGKey(0)
-# variables = model.init(rng, batch, False, rng)
-# template_params = variables["params"]
 
 params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
 params_backbone = ocp.StandardCheckpointer().restore(
@@ -145,46 +138,17 @@ params = {
 }
 params = jax.device_put(params, device=jax.devices("gpu")[0])
 
-# batch = batch.crop(model.patch_size)
-# checked_apply = checkify.checkify(model.apply)
-# step_fn = jax.jit(
-#         lambda batch, rng: model.apply({"params": params}, batch, training=False, rng=rng)
-#     )
-# warm_key, rng = jax.random.split(rng)
-# err, first_out = step_fn(batch, warm_key)
-# first_out = step_fn(batch, warm_key)
-# err.throw()
-# Sync to ensure any XLA work is done
-# first_key = next(iter(first_out.surf_vars))
-# first_out.surf_vars[first_key].block_until_ready()
+rng = jax.random.PRNGKey(0)
+p = tree_leaves(params)[0]
+batch = batch.type(p.dtype)
+batch = batch.crop(model.patch_size)
+batch = batch.to(jax.devices(p.device.platform)[p.device.host_id])
 
 preds = [
-    pred.to("cpu")
+    pred.to(jax.devices("cpu")[0])
     for pred in rollout(model, batch, steps=2, params=params, training=False, rng=rng)
 ]
-
 
 params = jax.device_put(params, device=jax.devices("cpu")[0])
 
 plot_all_vars(preds[1], t_idx=0, level_idx=0, out_path="outputs/all_vars_jax.png")
-
-# fig, ax = plt.subplots(2, 2, figsize=(12, 6.5))
-# for i in range(ax.shape[0]):
-#     pred = preds[i]
-
-#     # Fix: Remove the singleton dimension with squeeze
-#     ax[i, 0].imshow(np.squeeze(np.array(pred.surf_vars["2t"][0])) - 273.15, vmin=-50, vmax=50)
-#     ax[i, 0].set_ylabel(str(pred.metadata.time[0]))
-#     if i == 0:
-#         ax[i, 0].set_title("Aurora Prediction")
-#     ax[i, 0].set_xticks([])
-#     ax[i, 0].set_yticks([])
-
-#     ax[i, 1].imshow(surf_vars_ds["t2m"][2 + i].values - 273.15, vmin=-50, vmax=50)
-#     if i == 0:
-#         ax[i, 1].set_title("ERA5")
-#     ax[i, 1].set_xticks([])
-#     ax[i, 1].set_yticks([])
-# plt.tight_layout()
-# plt.savefig("aurora_comparison.png", bbox_inches="tight", dpi=300)
-# plt.close()

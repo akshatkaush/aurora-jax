@@ -37,30 +37,6 @@ class Metadata(struct.PyTreeNode):
         pytree_node=True,
     )
 
-    # def __post_init__(self):
-    #     lat_np = np.asarray(self.lat)
-    #     lon_np = np.asarray(self.lon)
-
-    #     if not ((lat_np <= 90).all() and (lat_np >= -90).all()):
-    #         raise ValueError("Latitudes must be in the range [-90, 90].")
-    #     if not ((lon_np >= 0).all() and (lon_np < 360).all()):
-    #         raise ValueError("Longitudes must be in the range [0, 360).")
-
-    #     if lat_np.ndim == lon_np.ndim == 1:
-    #         if not np.all(lat_np[1:] - lat_np[:-1] < 0):
-    #             raise ValueError("Latitudes must be strictly decreasing.")
-    #         if not np.all(lon_np[1:] - lon_np[:-1] > 0):
-    #             raise ValueError("Longitudes must be strictly increasing.")
-    #     elif lat_np.ndim == lon_np.ndim == 2:
-    #         if not np.all(lat_np[1:, :] - lat_np[:-1, :]):
-    #             raise ValueError("Latitudes must be strictly decreasing along every column.")
-    #         if not np.all(lon_np[:, 1:] - lon_np[:, :-1] > 0):
-    #             raise ValueError("Longitudes must be strictly increasing along every row.")
-    #     else:
-    #         raise ValueError(
-    #             "The latitudes and longitudes must either both be vectors or both be matrices."
-    #         )
-
 
 # @pytree_dataclass
 # @struct.dataclass
@@ -215,8 +191,7 @@ class Batch(struct.PyTreeNode):
 
     def to(self, device: str) -> "Batch":
         """Move the batch to another device."""
-        device_force = jax.devices("gpu")[0] if jax.devices("gpu") else jax.devices("cpu")[0]
-        return self._fmap(lambda x: jax.device_put(x, device_force))
+        return self._fmap(lambda x: jax.device_put(x, device))
 
     def type(self, dtype) -> "Batch":
         """Convert everything to type `dtype`."""
@@ -326,7 +301,7 @@ class Batch(struct.PyTreeNode):
 
 
 def _np(x: jnp.ndarray) -> np.ndarray:
-    return jax.device_get(x)
+    return np.array(x)
 
 
 def interpolate(

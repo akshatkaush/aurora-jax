@@ -4,14 +4,7 @@ import jax
 import jax.numpy as jnp
 from flax import linen as nn
 
-__all__ = [
-    "FourierExpansion",
-    # "pos_expansion",
-    # "scale_expansion",
-    # "lead_time_expansion",
-    # "levels_expansion",
-    # "absolute_time_expansion",
-]
+__all__ = ["FourierExpansion"]
 
 
 class FourierExpansion(nn.Module):
@@ -52,8 +45,6 @@ class FourierExpansion(nn.Module):
         in_range_or_zero = jnp.all(jnp.logical_or(in_range, x == 0))  # Allow zeros to pass through.
 
         if self.assert_range:
-            # JAX doesn't support raising exceptions in a computation graph, so we use assert_shape
-            # as a pattern to conditionally continue execution
             jax.lax.cond(
                 in_range_or_zero,
                 lambda _: None,
@@ -79,39 +70,7 @@ class FourierExpansion(nn.Module):
             dtype=x.dtype,
         )
 
-        scale = 2 * jnp.pi / wavelengths
-        prod = x[..., None] * scale  # Shape (..., i, j)
-
-        prod = jnp.einsum("...i,j->...ij", x, 2 * jnp.pi / wavelengths, optimize=False)
+        prod = jnp.einsum("...i,j->...ij", x, 2 * jnp.pi / wavelengths)
         encoding = jnp.concatenate((jnp.sin(prod), jnp.cos(prod)), axis=-1)
 
         return encoding.astype(jnp.float32)
-
-
-# Determine a reasonable smallest value for the scale embedding by assuming a smallest delta in
-# latitudes and longitudes.
-# _delta = 0.01  # Reasonable smallest delta in latitude and longitude
-# coords = jnp.array(
-#     [[90.0, 0.0], [90.0, _delta], [90.0 - _delta, _delta], [90.0 - _delta, 0.0]],
-#                                               dtype=jnp.float64
-# )
-
-# _min_patch_area: float = area(coords)
-# _area_earth = 4 * jnp.pi * radius_earth * radius_earth
-
-# pos_expansion = FourierExpansion(_delta, 720)
-# """:class:`.FourierExpansion`: Fourier expansion for the encoding of latitudes and longitudes in
-# degrees."""
-
-# scale_expansion = FourierExpansion(_min_patch_area, _area_earth)
-# """:class:`.FourierExpansion`: Fourier expansion for the encoding of patch areas in squared
-# kilometers."""
-
-# lead_time_expansion = FourierExpansion(1 / 60, 24 * 7 * 3)
-# """:class:`.FourierExpansion`: Fourier expansion for the lead time encoding in hours."""
-
-# levels_expansion = FourierExpansion(0.01, 1e5)
-# """:class:`.FourierExpansion`: Fourier expansion for the pressure level encoding in hPa."""
-
-# absolute_time_expansion = FourierExpansion(1, 24 * 365.25, assert_range=False)
-# """:class:`.FourierExpansion`: Fourier expansion for the absolute time encoding in hours."""

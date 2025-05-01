@@ -9,8 +9,6 @@ from flax import linen as nn
 
 from aurora.batch import Batch, Metadata
 from aurora.model.fourier import FourierExpansion
-
-# from aurora.model.fourier import levels_expansion
 from aurora.model.perceiver import PerceiverResampler
 from aurora.model.util import (
     check_lat_lon_dtype,
@@ -78,13 +76,13 @@ class Perceiver3DDecoder(nn.Module):
 
         self.levels_expansion = FourierExpansion(0.01, 1e5)
 
-    def deaggregate_levels(self, level_embed: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+    def deaggregate_levels(self, level_embed: jnp.ndarray, x: jnp.ndarray, training) -> jnp.ndarray:
         B, L, C, D = level_embed.shape
         # Flatten batch and level dims
         level_embed = level_embed.reshape((B * L, C, D))
         x = x.reshape((B * L, x.shape[2], D))
         # Cross-attend and project
-        x = self.level_decoder(level_embed, x)
+        x = self.level_decoder(level_embed, x, deterministic=not training)
         return x.reshape((B, L, C, D))
 
     def __call__(
@@ -102,7 +100,7 @@ class Perceiver3DDecoder(nn.Module):
         atmos_vars = tuple(batch.atmos_vars.keys())
         atmos_levels = batch.metadata.atmos_levels
 
-        B, L, D = x.shape
+        B, _, _ = x.shape
 
         lat, lon = batch.metadata.lat, batch.metadata.lon
         check_lat_lon_dtype(lat, lon)
@@ -128,7 +126,7 @@ class Perceiver3DDecoder(nn.Module):
             levels_embed, (B, x.shape[1], levels_embed.shape[0], levels_embed.shape[1])
         )
 
-        x_atmos = self.deaggregate_levels(levels_embed, x[..., 1:, :])  # (B, L, C_A, D)
+        x_atmos = self.deaggregate_levels(levels_embed, x[..., 1:, :], training)  # (B, L, C_A, D)
         x_atmos = jnp.stack(
             [getattr(self, f"atmos_head_{name}")(x_atmos) for name in atmos_vars], axis=-1
         )  # (B, N, C_A, V_A * p*p)

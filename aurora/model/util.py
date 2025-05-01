@@ -19,14 +19,14 @@ def unpatchify(x: jnp.ndarray, V: int, H: int, W: int, P: int) -> jnp.ndarray:
     """Unpatchify hidden representation.
 
     Args:
-        x (torch.Tensor): Patchified input of shape `(B, L, C, V * P^2)` where `P` is the
+        x (jnp.ndarray): Patchified input of shape `(B, L, C, V * P^2)` where `P` is the
             patch size.
         V (int): Number of variables.
         H (int): Number of latitudes.
         W (int): Number of longitudes.
 
     Returns:
-        torch.Tensor: Unpatchified representation of shape `(B, V, C, H, W)`.
+        jnp.ndarray: Unpatchified representation of shape `(B, V, C, H, W)`.
     """
     B, C = x.shape[0], x.shape[2]
     h_patches = H // P
@@ -49,7 +49,6 @@ def check_lat_lon_dtype(lat: jnp.ndarray, lon: jnp.ndarray) -> None:
     ], f"Longitudes need float32/64 for stability. Found: {lon.dtype}"
 
 
-# @partial(jax.jit, static_argnums=(0, 1, 2))
 def maybe_adjust_windows(window_size, shift_size, res):
     new_ws, new_ss = [], []
     for ws, ss, r in zip(window_size, shift_size, res):
@@ -61,45 +60,20 @@ def maybe_adjust_windows(window_size, shift_size, res):
             new_ss.append(ss)
     return tuple(new_ws), tuple(new_ss)
 
-    # mut_shift_size, mut_window_size = jnp.ndarray(shift_size), list(window_size)
-    # for i in range(len(res)):
-    #     if res[i] <= window_size[i]:
-    #         mut_shift_size[i] = 0
-    #         mut_window_size[i] = res[i]
-
-    # new_window_size: T = tuple(mut_window_size)  # type: ignore[assignment]
-    # new_shift_size: T = tuple(mut_shift_size)
-
-    # return new_window_size, new_shift_size
-
-
-def trunc_normal(std: float = 0.02, mean: float = 0.0, lower: float = -2.0, upper: float = 2.0):
-    """Truncated normal initializer for JAX."""
-
-    def init(key, shape, dtype=jnp.float32):
-        # Generate truncated normal values
-        return mean + jax.random.truncated_normal(key, lower, upper, shape, dtype) * std
-
-    return init
-
 
 def init_weights(
     key: jax.random.PRNGKey, shape: Tuple[int, ...], dtype: jnp.dtype = jnp.float32
 ) -> jnp.ndarray:
     """
-    Flax initializer mimicking your original:
+    Flax initializer mimicking original:
       - multi‑dimensional params (e.g. kernels)  → truncated normal (σ=0.02)
-      - 1D params         (e.g. biases, LN scale/bias) → zeros
+      - 1D params (e.g. biases, LN scale/bias) → zeros
     Use as:
       nn.Dense(..., kernel_init=init_weights, bias_init=init_weights)
     """
-    # fixed base seed
     base_key = jax.random.PRNGKey(0)
-    # unique per‑shape key
     shape_key = jax.random.fold_in(base_key, hash(tuple(shape)) & 0xFFFFFFFF)
     if len(shape) > 1:
-        # weight
         return nn.initializers.truncated_normal(stddev=0.02)(shape_key, shape, dtype)
     else:
-        # bias or 1‑d scale
         return jnp.zeros(shape, dtype)

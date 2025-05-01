@@ -91,7 +91,7 @@ def pos_scale_enc_grid(
     Args:
         encode_dim (int): Output encoding dimension `D`. Must be a multiple of four: splits
             across latitudes and longitudes and across sines and cosines.
-        grid (torch.Tensor): Latitude-longitude grid of dimensions `(B, 2, H, W)`. `grid[:, 0]`
+        grid (jnp.ndarray): Latitude-longitude grid of dimensions `(B, 2, H, W)`. `grid[:, 0]`
             should be the latitudes of `grid[:, 1]` should be the longitudes.
         patch_dims (tuple): Patch dimensions. Different x-values and y-values are supported.
         pos_expansion (:class:`aurora.model.fourier.FourierExpansion`): Fourier expansion for the
@@ -100,7 +100,7 @@ def pos_scale_enc_grid(
             patch areas.
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor]: Positional encoding and scale encoding of shape
+        tuple[jnp.ndarray, jnp.ndarray]: Positional encoding and scale encoding of shape
             `(B, H/patch[0] * W/patch[1], D)`.
     """
     assert encode_dim % 4 == 0
@@ -136,21 +136,18 @@ def pos_scale_enc_grid(
 def lat_lon_meshgrid(lat: jnp.ndarray, lon: jnp.ndarray) -> jnp.ndarray:
     """Construct a meshgrid of latitude and longitude coordinates.
 
-    `torch.meshgrid(*tensors, indexing="xy")` gives the same behavior as calling
-    `numpy.meshgrid(*arrays, indexing="ij")`::
-
-        lat = torch.tensor([1, 2, 3])
-        lon = torch.tensor([4, 5, 6])
-        grid_x, grid_y = torch.meshgrid(lat, lon, indexing='xy')
-        grid_x = tensor([[1, 2, 3], [1, 2, ,3], [1, 2, 3]])
-        grid_y = tensor([[4, 4, 4], [5, 5, ,5], [6, 6, 6]])
+        lat = jnp.ndarray([1, 2, 3])
+        lon = jnp.ndarray([4, 5, 6])
+        grid_x, grid_y = jnp.meshgrid(lat, lon, indexing='xy')
+        grid_x = ndarray([[1, 2, 3], [1, 2, ,3], [1, 2, 3]])
+        grid_y = ndarray([[4, 4, 4], [5, 5, ,5], [6, 6, 6]])
 
     Args:
-        lat (torch.Tensor): Vector of latitudes.
-        lon (torch.Tensor): Vector of longitudes.
+        lat (jnp.ndarray): Vector of latitudes.
+        lon (jnp.ndarray): Vector of longitudes.
 
     Returns:
-        torch.Tensor: Meshgrid of shape `(2, len(lat), len(lon))`.
+        jnp.ndarray: Meshgrid of shape `(2, len(lat), len(lon))`.
     """
     assert lat.ndim == 1
     assert lon.ndim == 1
@@ -175,8 +172,8 @@ def pos_scale_enc(
 
     Args:
         encode_dim (int): Output encoding dimension `D`.
-        lat (torch.Tensor): Latitudes, `H`. Can be either a vector or a matrix.
-        lon (torch.Tensor): Longitudes, `W`. Can be either a vector or a matrix.
+        lat (jnp.ndarray): Latitudes, `H`. Can be either a vector or a matrix.
+        lon (jnp.ndarray): Longitudes, `W`. Can be either a vector or a matrix.
         patch_dims (Union[list, tuple]): Patch dimensions. Different x-values and y-values are
             supported.
         pos_expansion (:class:`aurora.model.fourier.FourierExpansion`): Fourier expansion for the
@@ -185,7 +182,7 @@ def pos_scale_enc(
             patch areas.
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor]: Positional encoding and scale encoding of shape
+        tuple[jnp.ndarray, jnp.ndarray]: Positional encoding and scale encoding of shape
             `(H/patch[0] * W/patch[1], D)`.
     """
     if lat.ndim == lon.ndim == 1:
@@ -198,7 +195,7 @@ def pos_scale_enc(
             f"but have dimensionalities {lat.dim()} and {lon.dim()} respectively."
         )
 
-    grid = grid[None,]  # Add batch dimension.
+    grid = grid[None,]
 
     pos_encoding, scale_encoding = pos_scale_enc_grid(
         encode_dim,
