@@ -5,10 +5,61 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import orbax.checkpoint as ocp
+import pandas as pd
 import xarray as xr
 from jax.tree_util import tree_leaves
+from score import mae_loss_fn, weighted_mae, weighted_rmse
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
+
+
+def compute_weighted_rmse(pred, batch_true):
+    """Compute latitude-weighted RMSE for surface and atmospheric variables
+
+    Args:
+        pred (Batch): Prediction batch.
+        batch (Batch): Ground truth batch.
+
+    Returns:
+        rmse: Latitude weighted root mean squared error
+    """
+    surf_rmse = {}
+    surf_mae = {}
+    for key in pred.surf_vars:
+        pred_var = pred.surf_vars[key][0, 0]
+        true_var = batch_true.surf_vars[key][0, 0]
+        surf_rmse[key] = weighted_rmse(pred_var, true_var, pred.metadata.lat)
+        surf_mae[key] = weighted_mae(pred_var, true_var, pred.metadata.lat)
+
+    atmos_rmse = {}
+    atmos_mae = {}
+    for key in pred.atmos_vars:
+        for l_idx, level in enumerate(pred.metadata.atmos_levels):
+            pred_var = pred.atmos_vars[key][0, 0, l_idx]
+            true_var = batch_true.atmos_vars[key][0, 0, l_idx]
+            atmos_rmse[f"{key}_{level}"] = weighted_rmse(pred_var, true_var, pred.metadata.lat)
+            atmos_mae[f"{key}_{level}"] = weighted_mae(pred_var, true_var, pred.metadata.lat)
+
+    # print("RMSE for surface variables:")
+    # for key, rmse in surf_rmse.items():
+    #     print(f"  {key}: {rmse:.2f}")
+    # print("RMSE for atmospheric variables:")
+    # for key, rmse in atmos_rmse.items():
+    #     print(f"  {key}: {rmse:.2f}")
+
+    rows = []
+    for k in surf_rmse:
+        rows.append({"variable": k, "rmse": surf_rmse[k], "mae": surf_mae[k]})
+
+    for k in atmos_rmse:
+        rows.append({"variable": k, "rmse": atmos_rmse[k], "mae": atmos_mae[k]})
+
+    csv_path = "all_metrics.csv"
+    df = pd.DataFrame(rows, columns=["variable", "rmse", "mae"])
+    df.to_csv(csv_path, index=False)
+    print(f"All metrics saved to {csv_path!r}")
+
+    return surf_rmse, atmos_rmse, surf_mae, atmos_mae
 
 
 def plot_all_vars(
@@ -151,4 +202,46 @@ preds = [
 
 params = jax.device_put(params, device=jax.devices("cpu")[0])
 
+t_idx = 2
+batch_true = Batch(
+    surf_vars={
+        "2t": jnp.array(surf_vars_ds["t2m"].values[[t_idx]][None]),
+        "10u": jnp.array(surf_vars_ds["u10"].values[[t_idx]][None]),
+        "10v": jnp.array(surf_vars_ds["v10"].values[[t_idx]][None]),
+        "msl": jnp.array(surf_vars_ds["msl"].values[[t_idx]][None]),
+    },
+    static_vars={
+        "z": jnp.array(static_vars_ds["z"].values[0]),
+        "slt": jnp.array(static_vars_ds["slt"].values[0]),
+        "lsm": jnp.array(static_vars_ds["lsm"].values[0]),
+    },
+    atmos_vars={
+        "t": jnp.array(atmos_vars_ds["t"].values[[t_idx]][None]),
+        "u": jnp.array(atmos_vars_ds["u"].values[[t_idx]][None]),
+        "v": jnp.array(atmos_vars_ds["v"].values[[t_idx]][None]),
+        "q": jnp.array(atmos_vars_ds["q"].values[[t_idx]][None]),
+        "z": jnp.array(atmos_vars_ds["z"].values[[t_idx]][None]),
+    },
+    metadata=Metadata(
+        lat=jnp.array(surf_vars_ds.latitude.values),
+        lon=jnp.array(surf_vars_ds.longitude.values),
+        time=(surf_vars_ds.valid_time.values.astype("datetime64[s]").tolist()[t_idx],),
+        atmos_levels=tuple(int(level) for level in atmos_vars_ds.pressure_level.values),
+    ),
+)
+
+batch_true = batch_true.crop(model.patch_size)
+surf_weights = {"2t": 1.0, "10u": 1.0, "10v": 1.0, "msl": 1.0}
+atmos_weights = {
+    "t": jnp.ones(13) * 0.2,
+    "u": jnp.ones(13) * 0.2,
+    "v": jnp.ones(13) * 0.2,
+    "q": jnp.ones(13) * 0.2,
+    "z": jnp.ones(13) * 0.2,
+}
+# loss_fn = jax.jit(mae_loss_fn)
+loss_fn = mae_loss_fn
+loss = loss_fn(preds[0], batch_true, surf_weights, atmos_weights, gamma=0.5)
+print(f"Loss: {loss:.2f}")
+surf_rmse, atmos_rmse, surf_mae, atmos_mae = compute_weighted_rmse(preds[0], batch_true)
 plot_all_vars(preds[1], t_idx=0, level_idx=0, out_path="outputs/all_vars_jax.png")
