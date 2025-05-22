@@ -69,6 +69,10 @@ class Aurora(nn.Module):
                 stacklevel=2,
             )
 
+        # self.encoder = nn.remat(
+        #     Perceiver3DEncoder,
+        #     static_argnums=(2, 3),
+        # )(
         self.encoder = Perceiver3DEncoder(
             surf_vars_temp=self.surf_vars,
             static_vars=self.static_vars,
@@ -86,6 +90,10 @@ class Aurora(nn.Module):
             stabilise_level_agg=self.stabilise_level_agg,
         )
 
+        # self.backbone = nn.remat(
+        #     Swin3DTransformerBackbone,
+        #     static_argnums=
+        # )
         self.backbone = Swin3DTransformerBackbone(
             window_size_temp=self.window_size,
             encoder_depths=self.encoder_depths,
@@ -101,6 +109,10 @@ class Aurora(nn.Module):
             lora_mode=self.lora_mode,
         )
 
+        # self.decoder = nn.remat(
+        #    Perceiver3DDecoder,
+        #     static_argnums=(2, 3, 4, 5),
+        # )(
         self.decoder = Perceiver3DDecoder(
             surf_vars=self.surf_vars,
             atmos_vars=self.atmos_vars,
@@ -158,9 +170,9 @@ class Aurora(nn.Module):
         # start = time.time()
         x = self.encoder(
             batch,
-            lead_time=self.timestep,
-            training=training,
-            rng=encoder_rng,
+            self.timestep,
+            training,
+            encoder_rng,
         )
         # end = time.time()
         # jax.debug.print(f"Encoder time: {(end - start) * 1000:.2f} ms")
@@ -171,11 +183,11 @@ class Aurora(nn.Module):
         ) if self.autocast else contextlib.nullcontext():
             x = self.backbone(
                 x,
-                lead_time=self.timestep,
-                patch_res=patch_res,
-                rollout_step=batch.metadata.rollout_step,
-                training=training,
-                rng=backbone_rng,
+                self.timestep,
+                batch.metadata.rollout_step,
+                patch_res,
+                training,
+                backbone_rng,
             )
         # end = time.time()
         # jax.debug.print(f"Backbone time: {(end - start) * 1000:.2f} ms")
@@ -185,10 +197,10 @@ class Aurora(nn.Module):
         pred = self.decoder(
             x,
             batch,
-            lead_time=self.timestep,
-            patch_res=patch_res,
-            training=training,
-            rng=decoder_rng,
+            patch_res,
+            self.timestep,
+            training,
+            decoder_rng,
         )
         # end = time.time()
         # jax.debug.print(f"Decoder time: {(end - start) * 1000:.2f} ms")

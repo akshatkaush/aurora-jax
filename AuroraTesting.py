@@ -8,9 +8,9 @@ import orbax.checkpoint as ocp
 import pandas as pd
 import xarray as xr
 from jax.tree_util import tree_leaves
-from score import mae_loss_fn, weighted_mae, weighted_rmse
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
+from aurora.score import mae_loss_fn, weighted_mae, weighted_rmse
 
 
 def compute_weighted_rmse(pred, batch_true):
@@ -244,4 +244,8 @@ loss_fn = mae_loss_fn
 loss = loss_fn(preds[0], batch_true, surf_weights, atmos_weights, gamma=0.5)
 print(f"Loss: {loss:.2f}")
 surf_rmse, atmos_rmse, surf_mae, atmos_mae = compute_weighted_rmse(preds[0], batch_true)
-plot_all_vars(preds[1], t_idx=0, level_idx=0, out_path="outputs/all_vars_jax.png")
+
+# output_folder = '../tempData'
+# save_batch_npz(batch_true, output_folder, "truth value")
+
+plot_all_vars(preds[0], t_idx=2, level_idx=0, out_path="outputs/difference.png")

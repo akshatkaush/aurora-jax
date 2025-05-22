@@ -700,7 +700,10 @@ class Swin3DTransformerBackbone(nn.Module):
         dpr = jnp.linspace(0, self.drop_path_rate, sum(self.encoder_depths))
 
         self.encoder_layers = [
-            Basic3DEncoderLayer(
+            nn.remat(
+                Basic3DEncoderLayer,
+                static_argnums=(2, 3, 4, 5, 6),  # patch_res, rollout_step, training are static
+            )(
                 dim=int(self.embed_dim * 2**i_layer),
                 depth=self.encoder_depths[i_layer],
                 num_heads=self.encoder_num_heads[i_layer],
@@ -724,7 +727,10 @@ class Swin3DTransformerBackbone(nn.Module):
         ]
 
         self.decoder_layers = [
-            Basic3DDecoderLayer(
+            nn.remat(
+                Basic3DDecoderLayer,
+                static_argnums=(2, 3, 4, 5, 6),  # enc_res, pad_outs, rollout_step, training
+            )(
                 dim=int(self.embed_dim * 2 ** (self.num_decoder_layers - i_layer - 1)),
                 depth=self.decoder_depths[i_layer],
                 num_heads=self.decoder_num_heads[i_layer],
@@ -792,7 +798,7 @@ class Swin3DTransformerBackbone(nn.Module):
         for i, layer in enumerate(self.encoder_layers):
             rng, layer_rng = jax.random.split(rng)
             x, x_unscaled = layer(
-                x, c, all_enc_res[i], rollout_step=rollout_step, training=training, rng=layer_rng
+                x, c, all_enc_res[i], (0, 0, 0), rollout_step, training, layer_rng
             )
             skips.append(x_unscaled)
 
@@ -804,9 +810,9 @@ class Swin3DTransformerBackbone(nn.Module):
                 c,
                 all_enc_res[index],
                 padded_outs[index - 1],
-                rollout_step=rollout_step,
-                training=training,
-                rng=layer_rng,
+                rollout_step,
+                training,
+                layer_rng,
             )
 
             if 0 < i < self.num_decoder_layers - 1:

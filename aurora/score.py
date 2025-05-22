@@ -9,7 +9,7 @@ from aurora import Batch
 export = ["weighted_rmse", "weighted_mae", "mae_loss_fn", "compute_weighted_acc"]
 
 
-def weighted_rmse(pred, truth, lat):
+def weighted_rmse(pred: Batch, truth: Batch, lat):
     """
     Compute the RMSE with latitude weighting from two xr.DataArrays.
 
@@ -27,7 +27,7 @@ def weighted_rmse(pred, truth, lat):
     return np.sqrt(((error) ** 2 * weights).mean())
 
 
-def weighted_mae(pred, truth, lat):
+def weighted_mae(pred: Batch, truth: Batch, lat):
     """
     Compute the MAE with latitude weighting from two xr.DataArrays.
     Args:
