@@ -30,7 +30,12 @@ class HresT0SequenceDataset(IterableDataset):
     """
 
     def __init__(
-        self, zarr_path: str, mode: str = "train", shuffle: bool = True, seed: int | None = None
+        self,
+        zarr_path: str,
+        mode: str = "train",
+        shuffle: bool = True,
+        seed: int | None = None,
+        steps: int = 1,
     ):
         ds_full = xr.open_zarr(zarr_path, consolidated=True, chunks={"time": 1})
         if mode == "train":
@@ -55,6 +60,7 @@ class HresT0SequenceDataset(IterableDataset):
         self._idxs = list(range(2, len(self.times)))
         self.shuffle = shuffle
         self.seed = seed
+        self.rollout_steps = steps
 
     def __iter__(self):
         worker = get_worker_info()
@@ -91,26 +97,34 @@ class HresT0SequenceDataset(IterableDataset):
                 metadata=meta_in,
             )
 
-            surf_out = {
-                key: jnp.array(self.ds[var].isel(time=[i]).fillna(0).values[None])
-                for key, var in surf_map.items()
-            }
-            atmos_out = {
-                key: jnp.array(self.ds[var].isel(time=[i]).fillna(0).values[None])
-                for key, var in atmos_map.items()
-            }
-            ts_out = int(self.times[i].astype("datetime64[s]").tolist().timestamp())
-            meta_out = Metadata(
-                lat=self.lat,
-                lon=self.lon,
-                time=(jnp.array(ts_out, dtype=jnp.int64),),
-                atmos_levels=self.levels,
-            )
-            out_batch = Batch(
-                surf_vars=surf_out,
-                static_vars=self.static_vars,
-                atmos_vars=atmos_out,
-                metadata=meta_out,
-            )
+            # todo instead of this list, have a collate function which
+            # stacks the timestamps with increasing batch_size.
+            out_batch_list = []
+            temp_i = i
+            for _ in range(self.rollout_steps):
+                surf_out = {
+                    key: jnp.array(self.ds[var].isel(time=[temp_i]).fillna(0).values[None])
+                    for key, var in surf_map.items()
+                }
+                atmos_out = {
+                    key: jnp.array(self.ds[var].isel(time=[temp_i]).fillna(0).values[None])
+                    for key, var in atmos_map.items()
+                }
+                ts_out = int(self.times[temp_i].astype("datetime64[s]").tolist().timestamp())
+                meta_out = Metadata(
+                    lat=self.lat,
+                    lon=self.lon,
+                    time=(jnp.array(ts_out, dtype=jnp.int64),),
+                    atmos_levels=self.levels,
+                )
+                out_batch = Batch(
+                    surf_vars=surf_out,
+                    static_vars=self.static_vars,
+                    atmos_vars=atmos_out,
+                    metadata=meta_out,
+                )
 
-            yield in_batch, out_batch
+                out_batch_list.append(out_batch)
+                temp_i = temp_i + 1
+
+            yield in_batch, out_batch_list

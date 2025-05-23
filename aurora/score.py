@@ -9,6 +9,51 @@ from aurora import Batch
 export = ["weighted_rmse", "weighted_mae", "mae_loss_fn", "compute_weighted_acc"]
 
 
+def weighted_rmse_batch(pred: Batch, truth: Batch) -> jnp.ndarray:
+    """
+    Compute a single scalar RMSE over both surf_vars and atmos_vars in a Batch,
+    with latitude weighting.
+
+    Args:
+        pred: Batch of predictions
+        truth: Batch of ground-truths
+    Returns:
+        Scalar jnp.ndarray: latitude-weighted RMSE over all vars
+    """
+    lat = pred.metadata.lat  # → (h,)
+    w_lat = jnp.cos(jnp.deg2rad(lat))
+    w_lat = w_lat / jnp.mean(w_lat)  # ensure mean(w_lat)==1
+
+    # 2) Prepare broadcastable weight views
+    #   for surf_vars: (1,1,h,1) to match (b,t,h,w)
+    w_surf = w_lat[None, None, :, None]
+    #   for atmos_vars: (1,1,1,h,1) to match (b,t,c,h,w)
+    w_atmos = w_lat[None, None, None, :, None]
+
+    sum_wse = 0.0  # accumulate sum of weighted squared errors
+    count = 0  # accumulate total element count
+
+    # 3) Surface variables
+    for k, p_arr in pred.surf_vars.items():
+        t_arr = truth.surf_vars[k]  # → (b,t,h,w)
+        err2 = (p_arr - t_arr) ** 2  # squared error
+        wse = err2 * w_surf  # broadcasts to (b,t,h,w)
+        sum_wse += jnp.sum(wse)
+        count += wse.size
+
+    # 4) Atmospheric variables
+    for k, p_arr in pred.atmos_vars.items():
+        t_arr = truth.atmos_vars[k]  # → (b,t,c,h,w)
+        err2 = (p_arr - t_arr) ** 2
+        wse = err2 * w_atmos  # → (b,t,c,h,w)
+        sum_wse += jnp.sum(wse)
+        count += wse.size
+
+    # 5) Compute RMSE
+    mse = sum_wse / count
+    return jnp.sqrt(mse)
+
+
 def weighted_rmse(pred: Batch, truth: Batch, lat):
     """
     Compute the RMSE with latitude weighting from two xr.DataArrays.
@@ -55,38 +100,46 @@ def mae_loss_fn(
     beta: float = 1.0,
 ):
     """
-    Compute the loss function with latitude weighting from two xr.DataArrays.
-    Args:
-        pred (Batch): prediction array
-        truth (Batch): Truth.
-        lat (np.ndarray): one dimension Latitude array
-    Returns:
-        loss: aurora loss function
+    Vectorized MAE loss for surf_vars shape [B,1,H,W] and
+    atmos_vars shape [B,1,C,H,W].
     """
+
+    # --- SURFACE part ---
+    # stack over variables k -> [B, V_S, H, W]
+    surf_preds = jnp.stack([pred.surf_vars[k][:, 0] for k in surf_weights], axis=1)
+    surf_trues = jnp.stack([batch.surf_vars[k][:, 0] for k in surf_weights], axis=1)
+    diff_s = jnp.abs(surf_preds - surf_trues)  # [B, V_S, H, W]
+
+    # weight vector [V_S]
+    w_s = jnp.array([surf_weights[k] for k in surf_weights])  # [V_S]
+
+    # mean over H,W -> [B, V_S], dot with w_s -> [B]
+    surf_term = jnp.dot(jnp.mean(diff_s, axis=(2, 3)), w_s)  # [B]
+    surf_loss = alpha * surf_term  # [B]
+
+    # --- ATMOSPHERIC part ---
+    # stack over variables k -> [B, V_A, C, H, W]
+    atm_preds = jnp.stack([pred.atmos_vars[k][:, 0] for k in atmos_weights], axis=1)
+    atm_trues = jnp.stack([batch.atmos_vars[k][:, 0] for k in atmos_weights], axis=1)
+    diff_a = jnp.abs(atm_preds - atm_trues)  # [B, V_A, C, H, W]
+
+    # weight matrix [V_A, C]
+    w_a = jnp.stack([atmos_weights[k] for k in atmos_weights], axis=0)  # [V_A, C]
+
+    # apply per‐level weights and sum over C,H,W -> [B, V_A]
+    weighted = diff_a * w_a[None, :, :, None, None]
+    summed = jnp.sum(weighted, axis=(2, 3, 4))  # [B, V_A]
+
+    # normalise by (C*H*W), then sum over V_A -> [B]
+    C, H, W = diff_a.shape[2:]
+    atm_term = jnp.sum(summed / (C * H * W), axis=1)  # [B]
+    atm_loss = beta * atm_term  # [B]
+
+    # --- combine & average ---
     V_S = len(surf_weights)
     V_A = len(atmos_weights)
-
-    surf_terms = []
-    for k, w_s in surf_weights.items():
-        pred_s = pred.surf_vars[k][:, 1]  # [B, H, W]
-        true_s = batch.surf_vars[k][:, 1]  # [B, H, W]
-        diff = jnp.abs(pred_s - true_s)  # [B, H, W]
-        surf_terms.append(w_s * jnp.mean(diff, axis=(1, 2)))  # [B]
-    surf_loss = alpha * sum(surf_terms)
-
-    atmos_terms = []
-    for k, w_a in atmos_weights.items():
-        pred_a = pred.atmos_vars[k][:, 1]  # [B, C, H, W]
-        true_a = batch.atmos_vars[k][:, 1]  # [B, C, H, W]
-        diff = jnp.abs(pred_a - true_a)  # [B]
-        weighted = diff * w_a[None, :, None, None]
-        C, H, W = diff.shape[1], diff.shape[2], diff.shape[3]
-        normed = jnp.sum(weighted, axis=(1, 2, 3)) / (C * H * W)  # [B]
-        atmos_terms.append(normed)
-    atm_loss = beta * sum(atmos_terms)
-
     per_example = gamma / (V_S + V_A) * (surf_loss + atm_loss)  # [B]
-    return jnp.mean(per_example)
+    return jnp.mean(per_example)  # scalar
 
 
 # todo need to complete this function

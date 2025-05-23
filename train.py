@@ -18,11 +18,10 @@ from config import (
 from flax.training import train_state
 from torch.utils.data import DataLoader
 
-from score import mae_loss_fn, weighted_rmse_batch
-
 from aurora import AuroraSmall, Batch
 from aurora.IterableDataset import HresT0SequenceDataset
 from aurora.rolloutTrain import rollout_scan
+from aurora.score import mae_loss_fn, weighted_rmse_batch
 
 
 class TrainState(train_state.TrainState):
@@ -39,7 +38,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=5e-5)
-    parser.add_argument("--warmup_steps", type=int, default=500)
+    parser.add_argument("--warmup_steps", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--rollout_steps", type=int, default=2)
     parser.add_argument("--history_time_dim", type=int, default=2)
@@ -62,10 +61,10 @@ def main():
     os.makedirs("../tempData/decoder", exist_ok=True)
 
     ZARR = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
-    ds_train = HresT0SequenceDataset(ZARR, mode="train")
+    ds_train = HresT0SequenceDataset(ZARR, mode="train", steps=cfg.rollout_steps)
     loader_train = DataLoader(ds_train, batch_size=None, num_workers=0)
 
-    ds_eval = HresT0SequenceDataset(ZARR, mode="eval")
+    ds_eval = HresT0SequenceDataset(ZARR, mode="eval", steps=cfg.rollout_steps)
     loader_eval = DataLoader(ds_eval, batch_size=None, num_workers=0)
     rng = jax.random.PRNGKey(0)
 
@@ -93,8 +92,9 @@ def main():
 
         def loss_fn(params):
             preds, _, _ = rollout_scan(
-                state.apply_fn, model, inBatch, params, steps=steps, training=True, rng=roll_rng
+                state.apply_fn, model, inBatch, params, steps, True, roll_rng
             )
+
             last_pred = jax.tree_util.tree_map(lambda x: x[-1], preds)
             mae = mae_loss_fn(last_pred, outBatch, surf_weights, atmos_weights, gamma, alpha, beta)
             rmse = weighted_rmse_batch(last_pred, outBatch)
@@ -133,7 +133,7 @@ def main():
             )
             train_losses.append({"mae": train_mae, "rmse": train_rmse})
             global_step += 1
-            if (global_step + 1) % 20 == 0:
+            if (global_step + 1) % 2 == 0:
                 avg = {
                     "train/mae": float(jnp.stack([x["mae"] for x in train_losses]).mean()),
                     "train/rmse": float(jnp.stack([x["rmse"] for x in train_losses]).mean()),
@@ -143,19 +143,12 @@ def main():
                 wandb.log(avg, step=global_step)
                 train_losses.clear()
 
-            if global_step % 50 == 0:
+            if global_step % 100 == 0:
                 print(global_step)
-            # if global_step % 150 == 0:
-            #     ckpt.save("../tempData/encoder",
-            #             state.params["encoder"],
-            #             force=True)
-            #     ckpt.save("../tempData/backbone",
-            #             state.params["backbone"],
-            #             force=True)
-            #     ckpt.save("../tempData/decoder",
-            #             state.params["decoder"],
-            #             force=True)
-            #     print(f"Saved checkpoint at step {global_step}")
+            if global_step % 200 == 0:
+                for name in ("encoder", "backbone", "decoder"):
+                    ckpt.save(f"/home1/a/akaush/tempData/{name}", state.params[name], force=True)
+                print(f"Saved checkpoint at step {global_step}")
 
         # Validation
         val_maes = []

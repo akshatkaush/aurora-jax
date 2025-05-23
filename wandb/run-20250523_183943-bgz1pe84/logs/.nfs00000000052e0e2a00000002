@@ -1,0 +1,7 @@
+{"time":"2025-05-23T18:39:44.038365846-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/mnt/castor/seas_home/a/akaush/aurora/wandb/run-20250523_183943-bgz1pe84/logs/debug-core.log"}
+{"time":"2025-05-23T18:39:44.354250181-04:00","level":"INFO","msg":"created new stream","id":"bgz1pe84"}
+{"time":"2025-05-23T18:39:44.354389071-04:00","level":"INFO","msg":"stream: started","id":"bgz1pe84"}
+{"time":"2025-05-23T18:39:44.354447511-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"bgz1pe84"}
+{"time":"2025-05-23T18:39:44.354488901-04:00","level":"INFO","msg":"sender: started","stream_id":"bgz1pe84"}
+{"time":"2025-05-23T18:39:44.354567351-04:00","level":"INFO","msg":"handler: started","stream_id":"bgz1pe84"}
+{"time":"2025-05-23T18:39:44.784267242-04:00","level":"INFO","msg":"Starting system monitor"}

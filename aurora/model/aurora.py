@@ -92,8 +92,8 @@ class Aurora(nn.Module):
 
         # self.backbone = nn.remat(
         #     Swin3DTransformerBackbone,
-        #     static_argnums=
-        # )
+        #     static_argnums=(1,2,3,4,5),
+        # )(
         self.backbone = Swin3DTransformerBackbone(
             window_size_temp=self.window_size,
             encoder_depths=self.encoder_depths,

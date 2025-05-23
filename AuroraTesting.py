@@ -8,6 +8,7 @@ import orbax.checkpoint as ocp
 import pandas as pd
 import xarray as xr
 from jax.tree_util import tree_leaves
+from orbax.checkpoint import utils as ocp_utils
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
 from aurora.score import mae_loss_fn, weighted_mae, weighted_rmse
@@ -176,6 +177,40 @@ batch = Batch(
     ),
 )
 model = AuroraSmall(use_lora=False)
+
+key = jax.random.key(0)
+sample_batch = Batch(
+    surf_vars={
+        k: jax.random.normal(jax.random.split(key, 4)[i], (1, 2, 720, 1440)).astype(jnp.float32)
+        for i, k in enumerate(("2t", "10u", "10v", "msl"))
+    },
+    static_vars={
+        k: jax.random.normal(jax.random.split(key, 3)[i], (720, 1440)).astype(jnp.float32)
+        for i, k in enumerate(("z", "slt", "lsm"))
+    },
+    atmos_vars={
+        k: jax.random.normal(jax.random.split(key, 5)[i], (1, 2, 13, 720, 1440)).astype(jnp.float32)
+        for i, k in enumerate(("t", "u", "v", "q", "z"))
+    },
+    metadata=Metadata(
+        lat=jnp.linspace(90, -90, 720).astype(jnp.float32),
+        lon=jnp.linspace(0, 360, 1440 + 1)[:-1].astype(jnp.float32),
+        time=(jnp.array((1672570800), dtype=jnp.int64),),
+        atmos_levels=(1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50),
+    ),
+)
+init_vars = model.init(key, sample_batch, training=False, rng=key)
+abstract_params = init_vars["params"]
+abstract_enc = jax.tree_util.tree_map(ocp_utils.to_shape_dtype_struct, abstract_params["encoder"])
+abstract_bb = jax.tree_util.tree_map(ocp_utils.to_shape_dtype_struct, abstract_params["backbone"])
+abstract_dec = jax.tree_util.tree_map(ocp_utils.to_shape_dtype_struct, abstract_params["decoder"])
+
+# 3) restore into those skeletons
+ckpt = ocp.StandardCheckpointer()
+enc = ckpt.restore("/home1/a/akaush/aurora/checkpoints", {"encoder": abstract_enc})
+bb = ckpt.restore("/home1/a/akaush/aurora/checkpointsTillBackbone", {"backbone": abstract_bb})
+dec = ckpt.restore("/home1/a/akaush/aurora/checkpointsTillDecoder", {"decoder": abstract_dec})
+
 
 params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
 params_backbone = ocp.StandardCheckpointer().restore(

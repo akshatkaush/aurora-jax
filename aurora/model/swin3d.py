@@ -702,8 +702,9 @@ class Swin3DTransformerBackbone(nn.Module):
         self.encoder_layers = [
             nn.remat(
                 Basic3DEncoderLayer,
-                static_argnums=(2, 3, 4, 5, 6),  # patch_res, rollout_step, training are static
+                static_argnums=(3, 4, 5, 6),  # patch_res, rollout_step, training are static
             )(
+                # Basic3DEncoderLayer(
                 dim=int(self.embed_dim * 2**i_layer),
                 depth=self.encoder_depths[i_layer],
                 num_heads=self.encoder_num_heads[i_layer],
@@ -729,8 +730,9 @@ class Swin3DTransformerBackbone(nn.Module):
         self.decoder_layers = [
             nn.remat(
                 Basic3DDecoderLayer,
-                static_argnums=(2, 3, 4, 5, 6),  # enc_res, pad_outs, rollout_step, training
+                static_argnums=(3, 4, 5, 6),  # enc_res, pad_outs, rollout_step, training
             )(
+                # Basic3DDecoderLayer(
                 dim=int(self.embed_dim * 2 ** (self.num_decoder_layers - i_layer - 1)),
                 depth=self.decoder_depths[i_layer],
                 num_heads=self.decoder_num_heads[i_layer],
