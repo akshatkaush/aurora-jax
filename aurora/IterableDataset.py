@@ -56,11 +56,13 @@ class HresT0SequenceDataset(IterableDataset):
         self.levels = tuple(int(Plevels) for Plevels in self.ds.level.values)
         self.times = self.ds.time.values
 
-        # pre-compute all valid indices once
-        self._idxs = list(range(2, len(self.times)))
         self.shuffle = shuffle
         self.seed = seed
         self.rollout_steps = steps
+
+        # pre-compute all valid indices once
+        max_start = len(self.times) - (self.rollout_steps - 1)
+        self._idxs = list(range(2, max_start))
 
     def __iter__(self):
         worker = get_worker_info()

@@ -6,7 +6,6 @@ from aurora.batch import Batch
 
 def rollout_scan(
     apply_fn,
-    model,
     batch: Batch,
     params,
     steps: int,
@@ -22,7 +21,7 @@ def rollout_scan(
     # bring batch to correct dtype & device
     p0 = tree_leaves(params)[0]
     batch = batch.type(p0.dtype)
-    batch = batch.crop(model.patch_size)
+   # batch = batch.crop(model.patch_size)
 
     # split RNG once
     rng, step_rng = jax.random.split(rng)
@@ -46,10 +45,12 @@ def rollout_scan(
 # from aurora.model.aurora import Aurora
 # from score import mae_loss_fn
 # from config import surf_weights, atmos_weights, gamma, alpha, beta
+# from flax import linen as nn
 
 
 # def rollout_scan(
-#     model: Aurora,
+#     apply_fn,
+#     # patch_size,
 #     batch: Batch,
 #     params,
 #     steps: int,
@@ -65,12 +66,12 @@ def rollout_scan(
 #     # bring batch to correct dtype & device
 #     p0    = tree_leaves(params)[0]
 #     batch = batch.type(p0.dtype)
-#     batch = batch.crop(model.patch_size)
+#     # batch = batch.crop(patch_size)
 
 #     def _step_fn(carry, _):
 #         batch, rng = carry
 #         rng, step_rng = jax.random.split(rng)
-#         pred = model.apply({"params": params}, batch, training=training, rng=step_rng)
+#         pred = apply_fn({"params": params}, batch, training=training, rng=step_rng)
 #         next_batch = batch.replace(
 #             surf_vars={
 #                 k: jnp.concatenate([batch.surf_vars[k][:, 1:], v], axis=1)
@@ -83,10 +84,25 @@ def rollout_scan(
 #         )
 #         return (next_batch, rng), pred
 
+#     # (final_batch, final_rng), preds = nn.remat_scan(
+#     #     _step_fn,
+#     #     init=(batch, rng),
+#     #     xs=None,
+#     #     length=steps,
+#     # )
+#     # remat_scan_fn = nn.remat_scan(
+#     #     _step_fn,
+#     #     lengths=(steps,),
+#     # )
+
+#     # # run it
+#     # (final_batch, final_rng), preds = remat_scan_fn((batch, rng), None)
+#     remat_step = jax.remat(_step_fn)
 #     (final_batch, final_rng), preds = lax.scan(
-#         _step_fn,
+#         remat_step,
 #         init=(batch, rng),
 #         xs=None,
 #         length=steps,
 #     )
+
 #     return preds, final_batch, final_rng

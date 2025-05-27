@@ -44,12 +44,12 @@ def main():
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--rollout_steps", type=int, default=1)
     parser.add_argument("--history_time_dim", type=int, default=2)
-    parser.add_argument("--ckpt_encoder", type=str, default="/home1/a/akaush/aurora/checkpoints")
+    parser.add_argument("--ckpt_encoder", type=str, default="/home1/a/akaush/tempData/singleStepEncoder")
     parser.add_argument(
-        "--ckpt_backbone", type=str, default="/home1/a/akaush/aurora/checkpointsTillBackbone"
+        "--ckpt_backbone", type=str, default="/home1/a/akaush/tempData/singleStepBackbone"
     )
     parser.add_argument(
-        "--ckpt_decoder", type=str, default="/home1/a/akaush/aurora/checkpointsTillDecoder"
+        "--ckpt_decoder", type=str, default="/home1/a/akaush/tempData/singleStepDecoder"
     )
     parser.add_argument("--average_rollout_loss", action="store_true", 
                        help="Average loss across all rollout steps instead of using only the last step", default=True)
@@ -57,7 +57,7 @@ def main():
 
     jax.config.update("jax_debug_nans", True)
 
-    wandb.init(project="aurora-rollout2", config=vars(args))
+    wandb.init(project="aurora-rollout2-long-finetuning", config=vars(args))
     cfg = wandb.config
 
     # create directories with new names
@@ -73,18 +73,47 @@ def main():
     loader_eval = DataLoader(ds_eval, batch_size=None, num_workers=0)
     rng = jax.random.PRNGKey(0)
 
-    model = AuroraSmall(use_lora=False)
+    model = AuroraSmall(use_lora=True)
+
+    key = jax.random.key(0)
+    sample_batch = Batch(
+        surf_vars={
+            k: jax.random.normal(jax.random.split(key, 4)[i], (1, 2, 720, 1440)).astype(jnp.float32)
+            for i, k in enumerate(("2t", "10u", "10v", "msl"))
+        },
+        static_vars={
+            k: jax.random.normal(jax.random.split(key, 3)[i], (720, 1440)).astype(jnp.float32)
+            for i, k in enumerate(("z", "slt", "lsm"))
+        },
+        atmos_vars={
+            k: jax.random.normal(jax.random.split(key, 5)[i], (1, 2, 13, 720, 1440)).astype(jnp.float32)
+            for i, k in enumerate(("t", "u", "v", "q", "z"))
+        },
+        metadata=Metadata(
+            lat=jnp.linspace(90, -90, 720).astype(jnp.float32),
+            lon=jnp.linspace(0, 360, 1440 + 1)[:-1].astype(jnp.float32),
+            time=(jnp.array((1672570800), dtype=jnp.int64),),
+            atmos_levels=(1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50),
+        ),
+    )
+    init_vars = model.init(key, sample_batch, training=False, rng=key)
+    full_params = init_vars["params"]
+
 
     ckpt = ocp.StandardCheckpointer()
-    enc = ckpt.restore(cfg.ckpt_encoder)
-    bb = ckpt.restore(cfg.ckpt_backbone)
-    dec = ckpt.restore(cfg.ckpt_decoder)
-    params = {
-        "encoder": enc["encoder"],
-        "backbone": bb["backbone"],
-        "decoder": dec["decoder"],
-    }
-    params = jax.device_put(params, device=jax.devices("gpu")[0])
+    # enc = ckpt.restore(cfg.ckpt_encoder)
+    # bb = ckpt.restore(cfg.ckpt_backbone)
+    # dec = ckpt.restore(cfg.ckpt_decoder)
+    # params = {
+    #     "encoder": enc,
+    #     "backbone": bb,
+    #     "decoder": dec,
+    # }
+
+    full_params["encoder"]  = ckpt.restore(cfg.ckpt_encoder,  target=full_params["encoder"])
+    full_params["backbone"] = ckpt.restore(cfg.ckpt_backbone, target=full_params["backbone"])
+    full_params["decoder"]  = ckpt.restore(cfg.ckpt_decoder,  target=full_params["decoder"])
+    params = jax.device_put(full_params, device=jax.devices("gpu")[0])
 
     lr_schedule = create_lr_schedule(cfg.warmup_steps, cfg.learning_rate)
     tx = optax.adamw(learning_rate=lr_schedule, weight_decay=weight_decay)
