@@ -1,12 +1,12 @@
 import argparse
 import os
 from functools import partial
+from typing import List
 
 import jax
 import jax.numpy as jnp
 import optax
 import orbax.checkpoint as ocp
-from orbax.checkpoint import utils as ocp_utils
 import wandb
 from config import (
     alpha,
@@ -19,13 +19,11 @@ from config import (
 from flax.training import train_state
 from torch.utils.data import DataLoader
 
-from aurora.score import mae_loss_fn, weighted_rmse_batch
-
-from aurora import AuroraSmall, Batch, Metadata
+from aurora import AuroraSmall, Batch
 from aurora.IterableDataset import HresT0SequenceDataset
 from aurora.rolloutTrain import rollout_scan
-from jax.tree_util import tree_leaves, tree_map
-from typing import List
+from aurora.score import mae_loss_fn, weighted_rmse_batch
+
 
 class TrainState(train_state.TrainState):
     pass
@@ -35,6 +33,7 @@ def create_lr_schedule(warmup_steps: int, peak_lr: float):
     warmup = optax.linear_schedule(init_value=0.0, end_value=peak_lr, transition_steps=warmup_steps)
     constant = optax.constant_schedule(peak_lr)
     return optax.join_schedules([warmup, constant], [warmup_steps])
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -51,8 +50,12 @@ def main():
     parser.add_argument(
         "--ckpt_decoder", type=str, default="/home1/a/akaush/aurora/checkpointsTillDecoder"
     )
-    parser.add_argument("--average_rollout_loss", action="store_true", 
-                       help="Average loss across all rollout steps instead of using only the last step", default=True)
+    parser.add_argument(
+        "--average_rollout_loss",
+        action="store_true",
+        help="Average loss across all rollout steps instead of using only the last step",
+        default=True,
+    )
     args = parser.parse_args()
 
     jax.config.update("jax_debug_nans", True)
@@ -66,10 +69,10 @@ def main():
     os.makedirs("../tempData/singleStepDecoder", exist_ok=True)
 
     ZARR = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
-    ds_train = HresT0SequenceDataset(ZARR, mode="train", steps = cfg.rollout_steps)
+    ds_train = HresT0SequenceDataset(ZARR, mode="train", steps=cfg.rollout_steps)
     loader_train = DataLoader(ds_train, batch_size=None, num_workers=0)
 
-    ds_eval = HresT0SequenceDataset(ZARR, mode="eval", steps = cfg.rollout_steps)
+    ds_eval = HresT0SequenceDataset(ZARR, mode="eval", steps=cfg.rollout_steps)
     loader_eval = DataLoader(ds_eval, batch_size=None, num_workers=0)
     rng = jax.random.PRNGKey(0)
 
@@ -91,7 +94,9 @@ def main():
     state = TrainState.create(apply_fn=model.apply, params=params, tx=tx)
 
     @partial(jax.jit, static_argnums=(4, 5))
-    def train_step(state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool):
+    def train_step(
+        state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool
+    ):
         """
         Args:
             target_batches: List/sequence of target batches for each rollout step
@@ -101,32 +106,34 @@ def main():
         inBatch = inBatch.crop(model.patch_size)
 
         def loss_fn(params):
-            preds, _, _ = rollout_scan(
-                state.apply_fn, inBatch, params, steps, True, roll_rng
-            )
+            preds, _, _ = rollout_scan(state.apply_fn, inBatch, params, steps, True, roll_rng)
 
             if average_loss:
                 # Average MAE loss across all rollout steps (as mentioned in paper)
                 total_mae = 0.0
                 total_rmse = 0.0
-                
+
                 for step_idx in range(steps):
                     step_pred = jax.tree_util.tree_map(lambda x: x[step_idx], preds)
                     target_batch = target_batches[step_idx].crop(model.patch_size)
-                    
-                    step_mae = mae_loss_fn(step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta)
+
+                    step_mae = mae_loss_fn(
+                        step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
+                    )
                     step_rmse = weighted_rmse_batch(step_pred, target_batch)
-                    
+
                     total_mae += step_mae
                     total_rmse += step_rmse
-                
+
                 avg_mae = total_mae / steps
                 avg_rmse = total_rmse / steps
                 return avg_mae, avg_rmse
             else:
                 last_pred = jax.tree_util.tree_map(lambda x: x[-1], preds)
                 target_batch = target_batches[-1].crop(model.patch_size)
-                mae = mae_loss_fn(last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta)
+                mae = mae_loss_fn(
+                    last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
+                )
                 rmse = weighted_rmse_batch(last_pred, target_batch)
                 return mae, rmse
 
@@ -141,48 +148,59 @@ def main():
         return new_state, mae, rmse, rng, grad_norm, lr
 
     @partial(jax.jit, static_argnums=(4, 5))
-    def eval_step(state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool):
+    def eval_step(
+        state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool
+    ):
         rng, roll_rng = jax.random.split(rng, 2)
         inBatch = inBatch.crop(model.patch_size)
         preds, _, _ = rollout_scan(
             state.apply_fn, inBatch, state.params, steps=steps, training=False, rng=roll_rng
         )
-        
+
         if average_loss:
             total_mae = 0.0
             total_rmse = 0.0
-            
+
             for step_idx in range(steps):
                 step_pred = jax.tree_util.tree_map(lambda x: x[step_idx], preds)
                 target_batch = target_batches[step_idx].crop(model.patch_size)
                 # target_batch = target_batch.crop(model.patch_size)
-                step_mae = mae_loss_fn(step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta)
+                step_mae = mae_loss_fn(
+                    step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
+                )
                 step_rmse = weighted_rmse_batch(step_pred, target_batch)
-                
+
                 total_mae += step_mae
                 total_rmse += step_rmse
-            
+
             avg_mae = total_mae / steps
             avg_rmse = total_rmse / steps
             return avg_mae, avg_rmse, rng
         else:
             last_pred = jax.tree_util.tree_map(lambda x: x[-1], preds)
             target_batch = target_batches[-1].crop(model.patch_size)
-            mae = mae_loss_fn(last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta)
+            mae = mae_loss_fn(
+                last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
+            )
             rmse = weighted_rmse_batch(last_pred, target_batch)
             return mae, rmse, rng
 
     global_step = 0
     for epoch in range(1, cfg.epochs + 1):
         train_losses = []
-        for inBatch, target_batches in loader_train:            
+        for inBatch, target_batches in loader_train:
             rng, step_rng = jax.random.split(rng, 2)
             state, train_mae, train_rmse, rng, grad_norm, lr = train_step(
-                state, inBatch, target_batches, step_rng, cfg.rollout_steps, cfg.average_rollout_loss
+                state,
+                inBatch,
+                target_batches,
+                step_rng,
+                cfg.rollout_steps,
+                cfg.average_rollout_loss,
             )
             train_losses.append({"mae": train_mae, "rmse": train_rmse})
             global_step += 1
-            
+
             if (global_step + 1) % 1 == 0:
                 avg = {
                     "train/mae": float(jnp.stack([x["mae"] for x in train_losses]).mean()),
@@ -200,13 +218,9 @@ def main():
                 for orig, new in [
                     ("encoder", "singleStepEncoder"),
                     ("backbone", "singleStepBackbone"),
-                    ("decoder", "singleStepDecoder")
+                    ("decoder", "singleStepDecoder"),
                 ]:
-                    ckpt.save(
-                        f"/home1/a/akaush/tempData/{new}",
-                        state.params[orig],
-                        force=True
-                    )
+                    ckpt.save(f"/home1/a/akaush/tempData/{new}", state.params[orig], force=True)
                 print(f"Saved checkpoint at step {global_step}")
 
         # Validation
@@ -214,7 +228,14 @@ def main():
         val_rmses = []
         for inBatch, target_batches in loader_eval:
             rng, step_rng = jax.random.split(rng, 2)
-            v_mae, v_rmse, rng = eval_step(state, inBatch, target_batches, step_rng, cfg.rollout_steps, cfg.average_rollout_loss)
+            v_mae, v_rmse, rng = eval_step(
+                state,
+                inBatch,
+                target_batches,
+                step_rng,
+                cfg.rollout_steps,
+                cfg.average_rollout_loss,
+            )
             val_maes.append(v_mae)
             val_rmses.append(v_rmse)
 

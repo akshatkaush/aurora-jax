@@ -2,9 +2,7 @@ from pathlib import Path
 
 import jax
 import jax.numpy as jnp
-import orbax.checkpoint as ocp
 import xarray as xr
-from flax.training import orbax_utils
 
 from aurora import AuroraSmall, Batch, Metadata
 
@@ -206,7 +204,7 @@ batch = Batch(
 )
 
 
-model = AuroraSmall(use_lora=False)
+model = AuroraSmall(use_lora=True)
 rng = jax.random.PRNGKey(0)
 
 variables = model.init(rng, batch, training=False, rng=rng)
@@ -218,29 +216,29 @@ params = model.load_checkpoint("microsoft/aurora", "aurora-0.25-small-pretrained
 # for key, (shape, dtype) in extract_jax_params(template_params).items():
 #     print(f"Path: {key}, Shape: {shape}, dtype: {dtype}")
 
-# print("\nPyTorch parameters:")
-# for key, (shape, dtype) in extract_pt_params(params).items():
-#     print(f"Path: {key}, Shape: {shape}, dtype: {dtype}")
+print("\nPyTorch parameters:")
+for key, (shape, dtype) in extract_pt_params(params).items():
+    print(f"Path: {key}, Shape: {shape}, dtype: {dtype}")
 
-final_backbone_params = assign_pt_params_to_jax_backbone(template_params, params)
-assert jax.tree_structure(final_backbone_params["decoder"]) == jax.tree_structure(
-    template_params["decoder"]
-)
+# final_backbone_params = assign_pt_params_to_jax_backbone(template_params, params)
+# assert jax.tree_structure(final_backbone_params["decoder"]) == jax.tree_structure(
+#     template_params["decoder"]
+# )
 
-assert jax.tree_util.tree_all(
-    jax.tree_map(
-        lambda x, y: x.shape == y.shape,
-        final_backbone_params["decoder"],
-        template_params["decoder"],
-    )
-)
+# assert jax.tree_util.tree_all=p[(
+#     jax.tree_map(
+#         lambda x, y: x.shape == y.shape,
+#         final_backbone_params["decoder"],
+#         template_params["decoder"],
+#     )
+# )
 
 
-checkpointer = ocp.PyTreeCheckpointer()
-save_args = orbax_utils.save_args_from_target(final_backbone_params)
-checkpointer.save(
-    "/home1/a/akaush/aurora/checkpointsTillDecoder",
-    final_backbone_params,
-    save_args=save_args,
-    force=True,
-)
+# checkpointer = ocp.PyTreeCheckpointer()
+# save_args = orbax_utils.save_args_from_target(final_backbone_params)
+# checkpointer.save(
+#     "/home1/a/akaush/aurora/checkpointsTillDecoder",
+#     final_backbone_params,
+#     save_args=save_args,
+#     force=True,
+# )

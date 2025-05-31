@@ -1,19 +1,17 @@
 from pathlib import Path
 
 import jax
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import orbax.checkpoint as ocp
 import pandas as pd
 import xarray as xr
 from jax.tree_util import tree_leaves
-from orbax.checkpoint import utils as ocp_utils
-
-from aurora import AuroraSmall, Batch, Metadata, rollout
-from aurora.score import mae_loss_fn, weighted_mae, weighted_rmse
-from aurora.IterableDataset import HresT0SequenceDataset
 from save_batches import save_batch_npz
+
+from aurora import AuroraSmall, rollout
+from aurora.IterableDataset import HresT0SequenceDataset
+from aurora.score import weighted_mae, weighted_rmse
 
 
 def compute_weighted_rmse(pred, batch_true):
@@ -139,13 +137,7 @@ static_vars_ds = xr.open_dataset(download_path / "static.nc", engine="netcdf4")
 
 zarr_path = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
 
-val_ds = HresT0SequenceDataset(
-    zarr_path,
-    mode="val", 
-    shuffle=False,    
-    seed=0,          
-    steps=2
-)
+val_ds = HresT0SequenceDataset(zarr_path, mode="val", shuffle=False, seed=0, steps=2)
 
 batch, out_batch_list = next(iter(val_ds))
 
@@ -159,15 +151,13 @@ key = jax.random.key(0)
 # )
 # params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointsTillDecoder")
 params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepEncoder")
-params_backbone = ocp.StandardCheckpointer().restore(
-    "/home1/a/akaush/tempData/singleStepBackbone"
-)
+params_backbone = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepBackbone")
 params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepDecoder")
 
 params = {
-    "encoder": params_encoder['encoder'],
-    "backbone": params_backbone['backbone'],
-    "decoder": params_decoder['decoder'],
+    "encoder": params_encoder["encoder"],
+    "backbone": params_backbone["backbone"],
+    "decoder": params_decoder["decoder"],
 }
 params = jax.device_put(params, device=jax.devices("gpu")[0])
 
@@ -182,8 +172,8 @@ preds = [
     for pred in rollout(model, batch, steps=2, params=params, training=False, rng=rng)
 ]
 
-out_batch_list[0]= out_batch_list[0].crop(model.patch_size)
-out_batch_list[1]= out_batch_list[1].crop(model.patch_size)
+out_batch_list[0] = out_batch_list[0].crop(model.patch_size)
+out_batch_list[1] = out_batch_list[1].crop(model.patch_size)
 
 params = jax.device_put(params, device=jax.devices("cpu")[0])
 
@@ -204,6 +194,6 @@ t_idx = 2
 # print(f"Loss: {loss:.2f}")
 surf_rmse, atmos_rmse, surf_mae, atmos_mae = compute_weighted_rmse(preds[0], out_batch_list[0])
 
-output_folder = '../tempData'
+output_folder = "../tempData"
 save_batch_npz(out_batch_list[0], output_folder, "truth value")
 plot_all_vars(preds[0], t_idx=2, level_idx=0, out_path="outputs/differenceTwoStepTrained.png")

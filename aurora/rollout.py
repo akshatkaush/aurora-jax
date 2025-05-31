@@ -1,5 +1,6 @@
 """Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
 
+from functools import partial
 from typing import Generator
 
 import jax
@@ -8,8 +9,6 @@ from jax.tree_util import tree_leaves
 
 from aurora.batch import Batch, Metadata
 from aurora.model.aurora import Aurora
-
-from functools import partial
 
 __all__ = ["rollout"]
 
@@ -25,8 +24,7 @@ def rollout(
     rng, key = jax.random.split(rng, 2)
     mock_batch = Batch(
         surf_vars={
-            k: jax.random.normal(jax.random.split(key, 4)[i],
-                           (1, 2, 720, 1440)).astype(jnp.float32)
+            k: jax.random.normal(jax.random.split(key, 4)[i], (1, 2, 720, 1440)).astype(jnp.float32)
             for i, k in enumerate(("2t", "10u", "10v", "msl"))
         },
         static_vars={
