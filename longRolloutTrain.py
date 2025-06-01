@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader
 
 from aurora import AuroraSmall, Batch, Metadata
 from aurora.IterableDataset import HresT0SequenceDataset
-from aurora.rolloutTrain import rollout_scan
+from aurora.rolloutTrain import rollout_scan, single_step, rollout_scan_stop_gradients
 from aurora.score import mae_loss_fn, weighted_rmse_batch
 
 
@@ -324,7 +324,7 @@ def main():
         inBatch = inBatch.crop(model.patch_size)
 
         def loss_fn(params):
-            preds, _, _ = rollout_scan(state.apply_fn, inBatch, params, steps, True, roll_rng)
+            preds, _, _ = rollout_scan_stop_gradients(state.apply_fn, inBatch, params, steps, True, roll_rng)
 
             if average_loss:
                 # Average MAE loss across all rollout steps (as mentioned in paper)
@@ -388,7 +388,7 @@ def main():
     ):
         rng, roll_rng = jax.random.split(rng, 2)
         inBatch = inBatch.crop(model.patch_size)
-        preds, _, _ = rollout_scan(
+        preds, _, _ = rollout_scan_stop_gradients(
             state.apply_fn, inBatch, state.params, steps=steps, training=False, rng=roll_rng
         )
 
@@ -471,9 +471,9 @@ def main():
             if global_step % 200 == 0:
                 # save using the new names
                 for orig, new in [
-                    ("encoder", "singleStepEncoderLora"),
-                    ("backbone", "singleStepBackboneLora"),
-                    ("decoder", "singleStepDecoderLora"),
+                    ("encoder", "singleStepEncoderLoraFrozenBaseStopGradients"),
+                    ("backbone", "singleStepBackboneLoraFrozenBaseStopGradients"),
+                    ("decoder", "singleStepDecoderLoraFrozenBaseStopGradients"),
                 ]:
                     ckpt.save(f"/home1/a/akaush/tempData/{new}", state.params[orig], force=True)
                 print(f"Saved checkpoint at step {global_step}")

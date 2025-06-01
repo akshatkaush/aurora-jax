@@ -89,7 +89,7 @@ def rollout_scan_stop_gradients(
     params,
     steps: int,
     training: bool,
-    rng: jax.random.KeyArray,
+    rng: jax.random.key,
 ):
     """
     rollout with grad only through the last step, using lax.scan for JIT compatibility.
