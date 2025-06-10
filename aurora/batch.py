@@ -157,6 +157,7 @@ class Batch(struct.PyTreeNode):
         if h % patch_size == 0:
             return self
         elif h % patch_size == 1:
+            # Ensure we crop the same amount from all variables
             return Batch(
                 surf_vars={k: v[..., :-1, :] for k, v in self.surf_vars.items()},
                 static_vars={k: v[..., :-1, :] for k, v in self.static_vars.items()},

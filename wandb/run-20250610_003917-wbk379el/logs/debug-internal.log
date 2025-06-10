@@ -1,0 +1,7 @@
+{"time":"2025-06-10T00:39:17.571765137-04:00","level":"INFO","msg":"stream: starting","core version":"0.19.11","symlink path":"/mnt/castor/seas_home/a/akaush/aurora/wandb/run-20250610_003917-wbk379el/logs/debug-core.log"}
+{"time":"2025-06-10T00:39:17.890154299-04:00","level":"INFO","msg":"created new stream","id":"wbk379el"}
+{"time":"2025-06-10T00:39:17.890248479-04:00","level":"INFO","msg":"stream: started","id":"wbk379el"}
+{"time":"2025-06-10T00:39:17.890306929-04:00","level":"INFO","msg":"writer: Do: started","stream_id":"wbk379el"}
+{"time":"2025-06-10T00:39:17.890354539-04:00","level":"INFO","msg":"handler: started","stream_id":"wbk379el"}
+{"time":"2025-06-10T00:39:17.890417279-04:00","level":"INFO","msg":"sender: started","stream_id":"wbk379el"}
+{"time":"2025-06-10T00:39:18.089277976-04:00","level":"INFO","msg":"Starting system monitor"}

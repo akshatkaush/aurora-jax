@@ -1,7 +1,8 @@
+# trainReplayBuffer.py
 import argparse
 import os
 from functools import partial
-from typing import List
+from typing import List  # Added for type hinting
 
 import jax
 import jax.numpy as jnp
@@ -17,9 +18,11 @@ from config import (
     weight_decay,
 )
 from flax.training import train_state
+from jax.tree_util import tree_leaves, tree_map
+from replay_buffer import ReplayBuffer
 from torch.utils.data import DataLoader
 
-from aurora import AuroraSmall, Batch, Metadata
+from aurora import AuroraSmall, Batch, Metadata  # Batch, Metadata might be needed for type hints
 from aurora.IterableDataset import HresT0SequenceDataset
 from aurora.rolloutTrain import rollout_scan_stop_gradients
 from aurora.score import mae_loss_fn, weighted_rmse_batch
@@ -32,8 +35,6 @@ class LoRATrainState(train_state.TrainState):
 
     def apply_gradients(self, *, grads, **kwargs):
         """Only apply gradients to LoRA parameters, keep base parameters frozen."""
-        # The grads should only contain gradients for LoRA parameters
-        # base_params remain unchanged
         updates, new_opt_state = self.tx.update(grads, self.opt_state, self.params)
         new_params = optax.apply_updates(self.params, updates)
 
@@ -49,6 +50,19 @@ def create_lr_schedule(warmup_steps: int, peak_lr: float):
     warmup = optax.linear_schedule(init_value=0.0, end_value=peak_lr, transition_steps=warmup_steps)
     constant = optax.constant_schedule(peak_lr)
     return optax.join_schedules([warmup, constant], [warmup_steps])
+
+
+def active_lr_schedule_fn(step: int, cfg) -> float:
+    """
+    Returns the current learning rate based on the training step.
+    This is used for logging purposes to track the learning rate over time.
+    """
+    if cfg.freeze_base:
+        # When using LoRA, return the LoRA learning rate
+        return cfg.lora_learning_rate
+    else:
+        # When training all parameters, return the base learning rate
+        return cfg.learning_rate
 
 
 def separate_lora_params(params):
@@ -92,7 +106,6 @@ def create_lora_partition(params):
     """
 
     def label_param(path_elements, param):
-        # Convert path elements to string and check if it contains 'lora_'
         path_str = ".".join(str(p) for p in path_elements)
         return "lora" if "lora_" in path_str.lower() else "frozen"
 
@@ -120,22 +133,16 @@ def merge_params_with_lora_structure(saved_params, lora_params, component_name):
 
     def merge_recursive(saved_dict, lora_dict, path=""):
         merged = {}
-
-        # First, copy all LoRA parameters (this includes new LoRA-specific params)
         for key, value in lora_dict.items():
             current_path = f"{path}.{key}" if path else key
-
             if key in saved_dict:
                 if isinstance(value, dict) and isinstance(saved_dict[key], dict):
-                    # Recursively merge nested dictionaries
                     merged[key] = merge_recursive(saved_dict[key], value, current_path)
                 else:
-                    # Use saved parameter if available and shapes match
                     if hasattr(value, "shape") and hasattr(saved_dict[key], "shape"):
                         if value.shape == saved_dict[key].shape:
-                            # Ensure dtype consistency - convert to float32
                             merged[key] = jnp.asarray(saved_dict[key], dtype=jnp.float32)
-                            print(f"Loaded {component_name}.{current_path} from checkpoint")
+                            # print(f"Loaded {component_name}.{current_path} from checkpoint") # Keep original verbosity
                         else:
                             print(
                                 f"Shape mismatch for {component_name}.{current_path}: "
@@ -143,20 +150,127 @@ def merge_params_with_lora_structure(saved_params, lora_params, component_name):
                             )
                             merged[key] = value
                     else:
-                        # Ensure dtype consistency for non-array parameters too
                         if hasattr(saved_dict[key], "dtype"):
                             merged[key] = jnp.asarray(saved_dict[key], dtype=jnp.float32)
                         else:
                             merged[key] = saved_dict[key]
-                        print(f"Loaded {component_name}.{current_path} from checkpoint")
+                        # print(f"Loaded {component_name}.{current_path} from checkpoint") # Keep original verbosity
             else:
-                # Keep LoRA initialized parameter (new LoRA components)
                 merged[key] = value
-                print(f"Using initialized {component_name}.{current_path} (new LoRA parameter)")
-
+                # print(f"Using initialized {component_name}.{current_path} (new LoRA parameter)") # Keep original verbosity
+        # Add parameters from saved_dict that are not in lora_dict (base parameters)
+        for key, value in saved_dict.items():
+            if key not in merged:
+                current_path = f"{path}.{key}" if path else key
+                merged[key] = (
+                    jnp.asarray(value, dtype=jnp.float32) if hasattr(value, "dtype") else value
+                )
+                # print(f"Loaded base parameter {component_name}.{current_path} from checkpoint") # Keep original verbosity
         return merged
 
     return merge_recursive(saved_params, lora_params, "")
+
+
+@partial(jax.jit, static_argnums=(4, 5, 6))  # apply_fn, rollout_steps, patch_size
+def train_step_fn(
+    state: LoRATrainState,
+    sampled_inBatch: Batch,
+    fresh_target_last_step_cropped: Batch,
+    rng: jax.random.PRNGKey,
+    apply_fn,
+    rollout_steps: int,
+    patch_size: int,
+):
+    """
+    Performs a single training step including loss calculation, gradient update,
+    and prediction for the replay buffer.
+    """
+    rng, loss_rng, pred_rng = jax.random.split(rng, 3)
+    sampled_inBatch = sampled_inBatch.crop(patch_size)
+    fresh_target_last_step_cropped = fresh_target_last_step_cropped.crop(patch_size)
+
+    def loss_fn(params):
+        # Predictions are based on the sampled_inBatch from the replay buffer
+        preds, _, _ = rollout_scan_stop_gradients(
+            apply_fn, sampled_inBatch, params, rollout_steps, True, loss_rng
+        )
+        last_pred = tree_map(lambda x: x[-1], preds)
+
+        # Loss is calculated against the (cropped) last step of the fresh target batch
+        mae = mae_loss_fn(
+            last_pred,
+            fresh_target_last_step_cropped,
+            surf_weights,
+            atmos_weights,
+            gamma,
+            alpha,
+            beta,
+        )
+        rmse = weighted_rmse_batch(last_pred, fresh_target_last_step_cropped)
+        return mae, rmse
+
+    (mae, rmse), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+    new_state = state.apply_gradients(grads=grads)
+
+    # Generate predictions with the new_state.params for the replay buffer
+    # These predictions are also based on the sampled_inBatch
+    preds_for_buffer, _, _ = rollout_scan_stop_gradients(
+        apply_fn, sampled_inBatch, new_state.params, rollout_steps, True, pred_rng
+    )
+    # We only need the last step of these predictions for the buffer
+    pred_target_for_buffer = tree_map(lambda x: x[-1], preds_for_buffer)
+
+    return new_state, mae, rmse, rng, pred_target_for_buffer
+
+
+@partial(
+    jax.jit, static_argnums=(4, 5, 6, 7)
+)  # apply_fn, rollout_steps, average_rollout_loss, patch_size
+def eval_step_fn(
+    state: LoRATrainState,
+    inBatch: Batch,
+    target_batches: List[Batch],
+    rng: jax.random.PRNGKey,
+    apply_fn,
+    rollout_steps: int,
+    average_rollout_loss: bool,
+    patch_size: int,
+):
+    """
+    Performs a single evaluation step.
+    target_batches is a list of Batch objects, one for each rollout step.
+    """
+    rng, step_rng = jax.random.split(rng)
+    inBatch = inBatch.crop(patch_size)
+    for target_batch in target_batches:
+        target_batch = target_batch.crop(patch_size)
+
+    preds, _, _ = rollout_scan_stop_gradients(
+        apply_fn, inBatch, state.params, steps=rollout_steps, training=False, rng=step_rng
+    )
+
+    if average_rollout_loss:
+        total_mae = 0.0
+        total_rmse = 0.0
+        # This loop should be JAX-traceable if rollout_steps is static.
+        for step_idx in range(rollout_steps):
+            step_pred = tree_map(lambda x: x[step_idx], preds)
+            target_batch_step = target_batches[step_idx].crop(patch_size)
+            total_mae += mae_loss_fn(
+                step_pred, target_batch_step, surf_weights, atmos_weights, gamma, alpha, beta
+            )
+            total_rmse += weighted_rmse_batch(step_pred, target_batch_step)
+        val_mae = total_mae / rollout_steps
+        val_rmse = total_rmse / rollout_steps
+    else:
+        last_pred = tree_map(lambda x: x[-1], preds)
+        target_batch_last = target_batches[-1].crop(patch_size)
+        val_mae = mae_loss_fn(
+            last_pred, target_batch_last, surf_weights, atmos_weights, gamma, alpha, beta
+        )
+        val_rmse = weighted_rmse_batch(last_pred, target_batch_last)
+
+    return val_mae, val_rmse, rng
 
 
 def main():
@@ -191,11 +305,15 @@ def main():
         help="Average loss across all rollout steps instead of using only the last step",
         default=True,
     )
+    parser.add_argument("--dataset_sampling_period", type=int, default=2)
+    parser.add_argument("--replay_buffer_capacity", type=int, default=2)
     args = parser.parse_args()
 
     jax.config.update("jax_debug_nans", True)
 
-    wandb.init(project="aurora-rollout2-long-finetuning", config=vars(args))
+    wandb.init(
+        project="aurora-replay-buffer-refactored", config=vars(args)
+    )  # Changed project name slightly
     cfg = wandb.config
 
     # create directories with new names
@@ -309,204 +427,122 @@ def main():
         state = LoRATrainState.create(apply_fn=model.apply, params=params, tx=tx)
         print("Training all parameters (no LoRA separation)")
 
-    @partial(jax.jit, static_argnums=(4, 5))
-    def train_step(
-        state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool
-    ):
-        """
-        Args:
-            target_batches: List/sequence of target batches for each rollout step
-            average_loss: Whether to average loss across all steps or use only the last
-        """
-        rng, roll_rng = jax.random.split(rng, 2)
-        inBatch = inBatch.crop(model.patch_size)
+    buffer = ReplayBuffer(capacity=cfg.replay_buffer_capacity)
+    patch_size = model.patch_size
+    print("Initializing replay buffer...")
+    # The dataloader yields (input_sequence_batch, target_sequence_batch)
+    # For buffer initialization, we add the first element of the input_sequence_batch
+    for i, (inBatch_sequence, _) in enumerate(loader_train):
+        if i >= cfg.replay_buffer_capacity:
+            break
+        buffer.add(inBatch_sequence.crop(patch_size))  # Ensure cropped before adding
 
-        def loss_fn(params):
-            preds, _, _ = rollout_scan_stop_gradients(
-                state.apply_fn, inBatch, params, steps, True, roll_rng
-            )
-
-            if average_loss:
-                # Average MAE loss across all rollout steps (as mentioned in paper)
-                total_mae = 0.0
-                total_rmse = 0.0
-
-                for step_idx in range(steps):
-                    step_pred = jax.tree_util.tree_map(lambda x: x[step_idx], preds)
-                    target_batch = target_batches[step_idx].crop(model.patch_size)
-
-                    step_mae = mae_loss_fn(
-                        step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
-                    )
-                    step_rmse = weighted_rmse_batch(step_pred, target_batch)
-
-                    total_mae += step_mae
-                    total_rmse += step_rmse
-
-                avg_mae = total_mae / steps
-                avg_rmse = total_rmse / steps
-                return avg_mae, avg_rmse
-            else:
-                last_pred = jax.tree_util.tree_map(lambda x: x[-1], preds)
-                target_batch = target_batches[-1].crop(model.patch_size)
-                mae = mae_loss_fn(
-                    last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
-                )
-                rmse = weighted_rmse_batch(last_pred, target_batch)
-                return mae, rmse
-
-        (mae, rmse), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
-        new_state = state.apply_gradients(grads=grads)
-
-        # todo, remove later, only for testing, compute gradient norm
-        if cfg.freeze_base:
-            # Only compute gradient norm for LoRA parameters
-            # Get LoRA gradients by filtering based on partition
-            def get_lora_grads(grads, partition):
-                def filter_lora(g, p):
-                    return g if p == "lora" else jnp.zeros_like(g)
-
-                return jax.tree_util.tree_map(filter_lora, grads, partition)
-
-            lora_grads = get_lora_grads(grads, partition)
-            g2 = sum([jnp.vdot(g, g) for g in jax.tree_util.tree_leaves(lora_grads)])
-        else:
-            g2 = sum([jnp.vdot(g, g) for g in jax.tree_util.tree_leaves(grads)])
-        grad_norm = jnp.sqrt(g2)
-
-        # Get learning rate
-        if cfg.freeze_base:
-            lr = lr_schedule(state.step) if callable(lr_schedule) else cfg.lora_learning_rate
-        else:
-            lr = lr_schedule(state.step)
-
-        return new_state, mae, rmse, rng, grad_norm, lr
-
-    @partial(jax.jit, static_argnums=(4, 5))
-    def eval_step(
-        state, inBatch: Batch, target_batches: List[Batch], rng, steps: int, average_loss: bool
-    ):
-        rng, roll_rng = jax.random.split(rng, 2)
-        inBatch = inBatch.crop(model.patch_size)
-        preds, _, _ = rollout_scan_stop_gradients(
-            state.apply_fn, inBatch, state.params, steps=steps, training=False, rng=roll_rng
-        )
-
-        if average_loss:
-            total_mae = 0.0
-            total_rmse = 0.0
-
-            for step_idx in range(steps):
-                step_pred = jax.tree_util.tree_map(lambda x: x[step_idx], preds)
-                target_batch = target_batches[step_idx].crop(model.patch_size)
-                # target_batch = target_batch.crop(model.patch_size)
-                step_mae = mae_loss_fn(
-                    step_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
-                )
-                step_rmse = weighted_rmse_batch(step_pred, target_batch)
-
-                total_mae += step_mae
-                total_rmse += step_rmse
-
-            avg_mae = total_mae / steps
-            avg_rmse = total_rmse / steps
-            return avg_mae, avg_rmse, rng
-        else:
-            last_pred = jax.tree_util.tree_map(lambda x: x[-1], preds)
-            target_batch = target_batches[-1].crop(model.patch_size)
-            mae = mae_loss_fn(
-                last_pred, target_batch, surf_weights, atmos_weights, gamma, alpha, beta
-            )
-            rmse = weighted_rmse_batch(last_pred, target_batch)
-            return mae, rmse, rng
-
+    print("Training with replay buffer...")
     global_step = 0
-    for epoch in range(1, cfg.epochs + 1):
-        train_losses = []
-        for inBatch, target_batches in loader_train:
-            rng, step_rng = jax.random.split(rng, 2)
-            state, train_mae, train_rmse, rng, grad_norm, lr = train_step(
+    for epoch in range(cfg.epochs):
+        # Training Loop
+        for step_idx, (fresh_inBatch_t0, fresh_targets_sequence) in enumerate(loader_train):
+            rng, step_rng = jax.random.split(rng)
+
+            sampled_inBatch = buffer.sample()  # This is a Batch object
+
+            # The loss is calculated against the last target in the fresh sequence, cropped
+            fresh_target_last_step_cropped = fresh_targets_sequence[-1].crop(patch_size)
+
+            state, mae, rmse, rng, pred_target_for_buffer = train_step_fn(
                 state,
-                inBatch,
-                target_batches,
+                sampled_inBatch,
+                fresh_target_last_step_cropped,
                 step_rng,
+                state.apply_fn,
                 cfg.rollout_steps,
-                cfg.average_rollout_loss,
+                patch_size,
             )
-            train_losses.append({"mae": train_mae, "rmse": train_rmse})
+
+            # Create a Batch object from the prediction for the replay buffer
+            # sampled_inBatch is already cropped in train_step_fn, so we can use it directly
+            cropped_sampled_inBatch = sampled_inBatch.crop(patch_size)
+            pred_batch_for_buffer = Batch(
+                surf_vars=pred_target_for_buffer.surf_vars,
+                static_vars=cropped_sampled_inBatch.static_vars,  # Use cropped static_vars
+                atmos_vars=pred_target_for_buffer.atmos_vars,
+                metadata=cropped_sampled_inBatch.metadata,
+            )
+            buffer.add(pred_batch_for_buffer)
+
+            # Periodically add a fresh batch (t0 input) to the buffer
+            if global_step % cfg.dataset_sampling_period == 0:
+                buffer.add(fresh_inBatch_t0.crop(patch_size))  # Ensure cropped before adding
+
+            wandb.log(
+                {
+                    "train/mae": float(mae),
+                    "train/rmse": float(rmse),
+                    "train/lr": float(active_lr_schedule_fn(state.step, cfg)),
+                    # LoRA specific logging from original code
+                    "lora/trainable_params": sum(
+                        x.size
+                        for x in tree_leaves(
+                            tree_map(
+                                lambda p: p if "lora_" in str(p).lower() else None, state.params
+                            )
+                        )
+                        if x is not None
+                    ),
+                    "lora/total_params": sum(x.size for x in tree_leaves(state.params)),
+                    "lora/param_efficiency": (
+                        sum(
+                            x.size
+                            for x in tree_leaves(
+                                tree_map(
+                                    lambda p: p if "lora_" in str(p).lower() else None, state.params
+                                )
+                            )
+                            if x is not None
+                        )
+                        / sum(x.size for x in tree_leaves(state.params))
+                    )
+                    if sum(x.size for x in tree_leaves(state.params)) > 0
+                    else 0,
+                },
+                step=global_step,
+            )
             global_step += 1
 
-            if (global_step + 1) % 1 == 0:
-                avg = {
-                    "train/mae": float(jnp.stack([x["mae"] for x in train_losses]).mean()),
-                    "train/rmse": float(jnp.stack([x["rmse"] for x in train_losses]).mean()),
-                    "train/grad_norm": float(grad_norm),
-                    "train/lr": float(lr),
-                }
+        print(f"Epoch {epoch + 1} complete. Buffer size: {len(buffer)}. Global step: {global_step}")
 
-                # Add LoRA-specific metrics
-                if cfg.freeze_base:
-                    # Count trainable vs frozen parameters by filtering based on partition
-                    def count_lora_params(params, partition):
-                        def sum_if_lora(p, part):
-                            return p.size if part == "lora" else 0
+        # Evaluation Loop
+        val_maes, val_rmses = [], []
+        for eval_idx, (inBatch_eval, target_batches_eval) in enumerate(loader_eval):
+            rng, eval_rng = jax.random.split(rng)
 
-                        sizes = jax.tree_util.tree_map(sum_if_lora, params, partition)
-                        return sum(jax.tree_util.tree_leaves(sizes))
+            # Ensure data is on the correct device (JAX JIT usually handles this for inputs)
+            # inBatch_eval = jax.device_put(inBatch_eval)
+            # target_batches_eval = tree_map(jax.device_put, target_batches_eval)
 
-                    trainable_params = count_lora_params(state.params, partition)
-                    total_params = sum(x.size for x in jax.tree_util.tree_leaves(state.params))
-                    avg.update(
-                        {
-                            "lora/trainable_params": trainable_params,
-                            "lora/total_params": total_params,
-                            "lora/param_efficiency": trainable_params / total_params,
-                        }
-                    )
-                wandb.log(avg, step=global_step)
-                train_losses.clear()
-
-            if global_step % 100 == 0:
-                print(global_step)
-            if global_step % 200 == 0:
-                # save using the new names
-                for orig, new in [
-                    ("encoder", "singleStepEncoderLoraFrozenBaseStopGradients"),
-                    ("backbone", "singleStepBackboneLoraFrozenBaseStopGradients"),
-                    ("decoder", "singleStepDecoderLoraFrozenBaseStopGradients"),
-                ]:
-                    ckpt.save(f"/home1/a/akaush/tempData/{new}", state.params[orig], force=True)
-                print(f"Saved checkpoint at step {global_step}")
-
-        # Validation
-        val_maes = []
-        val_rmses = []
-        for inBatch, target_batches in loader_eval:
-            rng, step_rng = jax.random.split(rng, 2)
-            v_mae, v_rmse, rng = eval_step(
+            val_mae_step, val_rmse_step, rng = eval_step_fn(
                 state,
-                inBatch,
-                target_batches,
-                step_rng,
+                inBatch_eval,  # This is the t0 input Batch for the eval sequence
+                target_batches_eval,  # This is List[Batch] of targets for the eval sequence
+                eval_rng,
+                state.apply_fn,
                 cfg.rollout_steps,
                 cfg.average_rollout_loss,
+                patch_size,
             )
-            val_maes.append(v_mae)
-            val_rmses.append(v_rmse)
+            val_maes.append(val_mae_step)
+            val_rmses.append(val_rmse_step)
 
-        val_mae = float(jnp.stack(val_maes).mean())
-        val_rmse = float(jnp.stack(val_rmses).mean())
-        wandb.log(
-            {
-                "val/mae": val_mae,
-                "val/rmse": val_rmse,
-                "epoch": epoch,
-            }
-        )
-        print(
-            f"Epoch {epoch:2d} — train MAE {train_mae:.4f} RMSE {train_rmse:.4f}"
-            f" — val MAE {val_mae:.4f} RMSE {val_rmse:.4f}"
-        )
+        if val_maes:  # Ensure there were evaluation steps
+            val_mae_epoch = float(jnp.stack(val_maes).mean())
+            val_rmse_epoch = float(jnp.stack(val_rmses).mean())
+            wandb.log(
+                {"val/mae": val_mae_epoch, "val/rmse": val_rmse_epoch, "epoch": epoch + 1},
+                step=global_step,
+            )
+            print(f"Epoch {epoch + 1:2d} — val MAE {val_mae_epoch:.4f} RMSE {val_rmse_epoch:.4f}")
+        else:
+            print(f"Epoch {epoch + 1:2d} — No evaluation data processed.")
 
     wandb.finish()
 

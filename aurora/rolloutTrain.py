@@ -1,44 +1,40 @@
 import jax
 import jax.numpy as jnp
 from jax import lax
-from jax.tree_util import tree_leaves, tree_map
+from jax.tree_util import tree_leaves
 
 from aurora.batch import Batch
 
+# def single_step(
+#     apply_fn,
+#     batch: Batch,
+#     params,
+#     steps: int,
+#     training: bool,
+#     rng: jax.random.key,
+# ):
+#     """
+#     Single‐step forward pass:
+#       preds: PyTree with leading time‐dim = 1
+#       final_batch: unchanged input batch
+#       final_rng: post‐split RNG
+#     """
+#     # bring batch to correct dtype & device
+#     p0 = tree_leaves(params)[0]
+#     batch = batch.type(p0.dtype)
 
-def single_step(
-    apply_fn,
-    batch: Batch,
-    params,
-    steps: int,
-    training: bool,
-    rng: jax.random.key,
-):
-    """
-    Single‐step forward pass:
-      preds: PyTree with leading time‐dim = 1
-      final_batch: unchanged input batch
-      final_rng: post‐split RNG
-    """
-    # bring batch to correct dtype & device
-    p0 = tree_leaves(params)[0]
-    batch = batch.type(p0.dtype)
-    # batch = batch.crop(model.patch_size)
+#     rng, step_rng = jax.random.split(rng)
+#     # single‐step prediction
+#     pred = apply_fn({"params": params}, batch, training=training, rng=step_rng)
 
-    # split RNG once
-    rng, step_rng = jax.random.split(rng)
-    # single‐step prediction
-    pred = apply_fn({"params": params}, batch, training=training, rng=step_rng)
+#     # # wrap into length-1 time axis
+#     preds = tree_map(lambda x: x[None], pred)
 
-    # # wrap into length-1 time axis
-    preds = tree_map(lambda x: x[None], pred)
-
-    return preds, batch, rng
+#     return preds, batch, rng
 
 
 def rollout_scan(
     apply_fn,
-    # patch_size,
     batch: Batch,
     params,
     steps: int,
@@ -51,10 +47,8 @@ def rollout_scan(
       final_batch: the Batch after the last step
       final_rng: RNG after all splits
     """
-    # bring batch to correct dtype & device
     p0 = tree_leaves(params)[0]
     batch = batch.type(p0.dtype)
-    # batch = batch.crop(patch_size)
 
     def _step_fn(carry, _):
         batch, rng = carry
@@ -113,7 +107,6 @@ def rollout_scan_stop_gradients(
             },
         )
 
-        # stop gradient for all steps except last
         pred = jax.lax.cond(
             step_idx < steps - 1,
             lambda _: jax.tree_util.tree_map(jax.lax.stop_gradient, pred),

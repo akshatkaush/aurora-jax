@@ -1,0 +1,78 @@
+{
+  "os": "Linux-6.4.0-150600.23.47-default-x86_64-with-glibc2.38",
+  "python": "CPython 3.12.9",
+  "startedAt": "2025-06-10T04:39:17.561663Z",
+  "program": "/mnt/castor/seas_home/a/akaush/aurora/trainReplayBuffer.py",
+  "codePath": "trainReplayBuffer.py",
+  "git": {
+    "remote": "https://github.com/akshatkaush/aurora.git",
+    "commit": "9110269e898a4c23131c1fa82b8d4c0da7019d97"
+  },
+  "email": "akshatkaush@gmail.com",
+  "root": "/mnt/castor/seas_home/a/akaush/aurora",
+  "host": "blade.seas.upenn.edu",
+  "executable": "/mnt/castor/seas_home/a/akaush/aurora3env/bin/python",
+  "codePathLocal": "trainReplayBuffer.py",
+  "cpu_count": 128,
+  "cpu_count_logical": 256,
+  "gpu": "NVIDIA RTX A6000",
+  "gpu_count": 7,
+  "disk": {
+    "/": {
+      "total": "3761863258112",
+      "used": "3352696528896"
+    }
+  },
+  "memory": {
+    "total": "540749799424"
+  },
+  "cpu": {
+    "count": 128,
+    "countLogical": 256
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    },
+    {
+      "name": "NVIDIA RTX A6000",
+      "memoryTotal": "51527024640",
+      "cudaCores": 10752,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.7"
+}

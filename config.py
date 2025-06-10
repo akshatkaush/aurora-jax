@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 
+# --- Original Config Values (from your configs.py) ---
 surf_weights = {
     "2t": 3.5,
     "10u": 0.77,
@@ -20,4 +21,27 @@ gamma = 1.0
 alpha = 1.0 / 4
 beta = 1.0
 
-weight_decay = 5e-6
+weight_decay = 5e-6  # This was in your original train.py, adding here for consistency
+
+# --- Replay Buffer and Training Schedule Configurations ---
+REPLAY_BUFFER_CAPACITY = 200
+DATASET_SAMPLING_PERIOD = 10
+LEAD_TIME_SCHEDULE_STEP_THRESHOLD = 5000
+
+HOURS_PER_STEP = 6
+INITIAL_LEAD_TIME_LIMIT_DAYS = 4
+FULL_LEAD_TIME_LIMIT_DAYS = 10
+
+INITIAL_LEAD_TIME_LIMIT_STEPS = INITIAL_LEAD_TIME_LIMIT_DAYS * (24 // HOURS_PER_STEP)
+FULL_LEAD_TIME_LIMIT_STEPS = FULL_LEAD_TIME_LIMIT_DAYS * (24 // HOURS_PER_STEP)
+
+# --- Paths (MUST BE VERIFIED FOR YOUR SYSTEM) ---
+ZARR_PATH = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
+STATIC_DATA_PATH = "/home1/a/akaush/aurora/datasetEnviousScratch/static.nc"
+
+# --- Time Constants ---
+SECONDS_PER_HOUR = 3600
+TIMESTEP_DURATION_SECONDS = HOURS_PER_STEP * SECONDS_PER_HOUR
+
+# --- Model Specific (Optional placeholder) ---
+# MODEL_PATCH_SIZE = 64 # If you have a global patch size, define it here
