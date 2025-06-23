@@ -13,8 +13,8 @@ from aurora.foundry.server.mlflow_wrapper import AuroraModelWrapper
 
 artifacts: dict[str, str] = {}
 
-# Download all checkpoints into a local directory which will be included in the package.
-ckpt_dir = Path("checkpoints")
+# Download all checkpointEncoder into a local directory which will be included in the package.
+ckpt_dir = Path("checkpointEncoder")
 ckpt_dir.mkdir(parents=True, exist_ok=True)
 for name in models:
     hf_hub_download(

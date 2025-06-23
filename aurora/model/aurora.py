@@ -1,5 +1,3 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
-
 import contextlib
 import dataclasses
 import warnings
@@ -8,11 +6,9 @@ from typing import Dict, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
-import torch
 
 # import torch
 from flax import linen as nn
-from huggingface_hub import hf_hub_download
 
 # from huggingface_hub import hf_hub_download
 # from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
@@ -207,7 +203,6 @@ class Aurora(nn.Module):
         # end = time.time()
         # jax.debug.print(f"Decoder time: {(end - start) * 1000:.2f} ms")
 
-        # Remove batch and history dimension from static variables.
         pred = dataclasses.replace(
             pred,
             static_vars={k: v[0, 0] for k, v in batch.static_vars.items()},
@@ -221,173 +216,7 @@ class Aurora(nn.Module):
         )
 
         pred = pred.unnormalise(surf_stats=self.surf_stats)
-        # print("compilation done")
         return pred
-        # return x
-
-    def load_checkpoint(self, repo: str, name: str, strict: bool = True):
-        """Load a checkpoint from HuggingFace.
-
-        Args:
-            repo (str): Name of the repository of the form `user/repo`.
-            name (str): Path to the checkpoint relative to the root of the repository, e.g.
-                `checkpoint.cpkt`.
-            strict (bool, optional): Error if the model parameters are not exactly equal to the
-                parameters in the checkpoint. Defaults to `True`.
-        """
-        path = hf_hub_download(repo_id=repo, filename=name)
-        jax_params = self.load_checkpoint_local(path, strict=strict)
-        return jax_params
-
-    def load_checkpoint_local(self, path: str, strict: bool = True):
-        """Load a checkpoint directly from a file.
-
-        Args:
-            path (str): Path to the checkpoint.
-            strict (bool, optional): Error if the model parameters are not exactly equal to the
-                parameters in the checkpoint. Defaults to `True`.
-        """
-        # Assume that all parameters are either on the CPU or on the GPU.
-        # Get the first parameter key (e.g., 'encoder')
-        # param_key = list(params['params'].keys())[0]
-        # param_value = params['params'][param_key]     # Access the corresponding parameter value
-        device = jax.devices()[0]
-
-        d = torch.load(
-            path, map_location="cpu" if device.platform == "cpu" else "cuda", weights_only=True
-        )
-
-        # You can safely ignore all cumbersome processing below. We modified the model after we
-        # trained it. The code below manually adapts the checkpoints, so the checkpoints are
-        # compatible with the new model.
-
-        # Remove possibly prefix from the keys.
-        for k, v in list(d.items()):
-            if k.startswith("net."):
-                del d[k]
-                d[k[4:]] = v
-
-        # Convert the ID-based parametrization to a name-based parametrization.
-        if "encoder.surf_token_embeds.weight" in d:
-            weight = d["encoder.surf_token_embeds.weight"]
-            del d["encoder.surf_token_embeds.weight"]
-
-            assert weight.shape[1] == 4 + 3
-            for i, name in enumerate(("2t", "10u", "10v", "msl", "lsm", "z", "slt")):
-                d[f"encoder.surf_token_embeds.weights.{name}"] = weight[:, [i]]
-
-        if "encoder.atmos_token_embeds.weight" in d:
-            weight = d["encoder.atmos_token_embeds.weight"]
-            del d["encoder.atmos_token_embeds.weight"]
-
-            assert weight.shape[1] == 5
-            for i, name in enumerate(("z", "u", "v", "t", "q")):
-                d[f"encoder.atmos_token_embeds.weights.{name}"] = weight[:, [i]]
-
-        if "decoder.surf_head.weight" in d:
-            weight = d["decoder.surf_head.weight"]
-            bias = d["decoder.surf_head.bias"]
-            del d["decoder.surf_head.weight"]
-            del d["decoder.surf_head.bias"]
-
-            assert weight.shape[0] == 4 * self.patch_size**2
-            assert bias.shape[0] == 4 * self.patch_size**2
-            weight = weight.reshape(self.patch_size**2, 4, -1)
-            bias = bias.reshape(self.patch_size**2, 4)
-
-            for i, name in enumerate(("2t", "10u", "10v", "msl")):
-                d[f"decoder.surf_heads.{name}.weight"] = weight[:, i]
-                d[f"decoder.surf_heads.{name}.bias"] = bias[:, i]
-
-        if "decoder.atmos_head.weight" in d:
-            weight = d["decoder.atmos_head.weight"]
-            bias = d["decoder.atmos_head.bias"]
-            del d["decoder.atmos_head.weight"]
-            del d["decoder.atmos_head.bias"]
-
-            assert weight.shape[0] == 5 * self.patch_size**2
-            assert bias.shape[0] == 5 * self.patch_size**2
-            weight = weight.reshape(self.patch_size**2, 5, -1)
-            bias = bias.reshape(self.patch_size**2, 5)
-
-            for i, name in enumerate(("z", "u", "v", "t", "q")):
-                d[f"decoder.atmos_heads.{name}.weight"] = weight[:, i]
-                d[f"decoder.atmos_heads.{name}.bias"] = bias[:, i]
-
-        # Check if the history size is compatible and adjust weights if necessary.
-        current_history_size = d["encoder.surf_token_embeds.weights.2t"].shape[2]
-        if self.max_history_size > current_history_size:
-            self.adapt_checkpoint_max_history_size(d)
-        elif self.max_history_size < current_history_size:
-            raise AssertionError(
-                f"Cannot load checkpoint with `max_history_size` {current_history_size} "
-                f"into model with `max_history_size` {self.max_history_size}."
-            )
-
-        jax_params = self.convert_pytorch_to_jax(d)
-        return jax_params
-
-    def adapt_checkpoint_max_history_size(self, checkpoint: dict[str, torch.Tensor]) -> None:
-        """Adapt a checkpoint with smaller `max_history_size` to a model with a larger
-        `max_history_size` than the current model.
-
-        If a checkpoint was trained with a larger `max_history_size` than the current model,
-        this function will assert fail to prevent loading the checkpoint. This is to
-        prevent loading a checkpoint which will likely cause the checkpoint to degrade is
-        performance.
-
-        This implementation copies weights from the checkpoint to the model and fills zeros
-        for the new history width dimension. It mutates `checkpoint`.
-        """
-        for name, weight in list(checkpoint.items()):
-            # We only need to adapt the patch embedding in the encoder.
-            enc_surf_embedding = name.startswith("encoder.surf_token_embeds.weights.")
-            enc_atmos_embedding = name.startswith("encoder.atmos_token_embeds.weights.")
-            if enc_surf_embedding or enc_atmos_embedding:
-                # This shouldn't get called with current logic but leaving here
-                #   for future proofing
-                # and in cases where its called outside current context.
-                if not (weight.shape[2] <= self.max_history_size):
-                    raise AssertionError(
-                        f"Cannot load checkpoint with `max_history_size` {weight.shape[2]} "
-                        f"into model with `max_history_size` {self.max_history_size}."
-                    )
-
-                # Initialize the new weight tensor.
-                new_weight = torch.zeros(
-                    (weight.shape[0], 1, self.max_history_size, weight.shape[3], weight.shape[4]),
-                    device=weight.device,
-                    dtype=weight.dtype,
-                )
-                # Copy the existing weights to the new tensor by duplicating the
-                #   histories provided
-                # into any new history dimensions. The rest remains at zero.
-                new_weight[:, :, : weight.shape[2]] = weight
-
-                checkpoint[name] = new_weight
-
-    # def configure_activation_checkpointing(self):
-    #     """Configure activation checkpointing.
-
-    #     This is required in order to compute gradients without running out of memory.
-    #     """
-    #     apply_activation_checkpointing(self, check_fn=lambda x: isinstance(x, BasicLayer3D))
-
-    def convert_pytorch_to_jax(self, state_dict):
-        """
-        Convert PyTorch state dictionary to JAX-compatible format.
-
-        Args:
-            state_dict (dict): PyTorch state dictionary with parameter names and tensors.
-
-        Returns:
-            dict: JAX-compatible state dictionary with the same keys and JAX arrays.
-        """
-        jax_state_dict = {}
-        for key, value in state_dict.items():
-            # Convert PyTorch tensors to JAX arrays
-            jax_state_dict[key] = jnp.array(value.cpu().numpy())
-        return jax_state_dict
 
 
 AuroraSmall = partial(

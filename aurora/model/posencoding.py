@@ -1,13 +1,6 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license.
-
-Parts of this code are inspired by
-
-    https://github.com/microsoft/ClimaX/blob/6d5d354ffb4b91bb684f430b98e8f6f8af7c7f7c/src/climax/utils/pos_embed.py
-"""
-
 import jax.numpy as jnp
 from jax import lax
-from timm.models.layers.helpers import to_2tuple
+from timm.layers.helpers import to_2tuple
 
 from aurora.model.fourier import FourierExpansion
 

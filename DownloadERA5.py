@@ -1,4 +1,4 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
+
 
 from pathlib import Path
 
@@ -92,4 +92,3 @@ if not (download_path / "2023-01-01-atmospheric.nc").exists():
         str(download_path / "2023-01-01-atmospheric.nc"),
     )
 print("Atmospheric variables downloaded!")
-# /scratch/akaush

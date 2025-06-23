@@ -1,6 +1,3 @@
-# lora.py
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
-
 from typing import Literal
 
 import jax.numpy as jnp
@@ -20,12 +17,10 @@ class LoRA(nn.Module):
 
     def setup(self):
         assert self.r > 0, "The rank must be strictly positive."
-        # mirror PyTorch naming
         self.lora_alpha = self.alpha
         self.scaling = self.lora_alpha / self.r
         self.lora_dropout = nn.Dropout(rate=self.dropout)
 
-        # low-rank adapters
         self.lora_A = self.param(
             "lora_A",
             nn.initializers.variance_scaling(1.0, "fan_in", "normal"),
@@ -60,10 +55,8 @@ class LoRARollout(nn.Module):
         self.scaling = self.alpha / self.r
         self.lora_dropout = nn.Dropout(rate=self.dropout)
 
-        # how many distinct adapters?
         n = self.max_steps if self.mode == "all" else 1
 
-        # one big array of A’s and B’s
         self.lora_A = self.param(
             "lora_A",
             nn.initializers.variance_scaling(1.0, "fan_in", "normal"),
@@ -89,25 +82,15 @@ class LoRARollout(nn.Module):
         """
         # apply dropout once
         x_drop = self.lora_dropout(x, deterministic=deterministic)
-
-        # bring step on‐device
         step = jnp.asarray(step)
-        assert step.ndim == 0, "step must be a scalar integer"
-
-        # number of stored adapters
         n = self.lora_A.shape[0]
-
-        # clamp index: [0, n-1]
         idx = jnp.minimum(step, n - 1)
 
-        # select A and B
         A = self.lora_A[idx]  # (r, in_features)
         B = self.lora_B[idx]  # (out_features, r)
 
         # compute LoRA update
         delta = x_drop @ A.T @ B.T  # [..., out_features]
 
-        # mask out if step ≥ n
         mask = (step < n).astype(x.dtype)
-
         return delta * self.scaling * mask

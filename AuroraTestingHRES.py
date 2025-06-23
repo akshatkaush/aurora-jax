@@ -145,11 +145,11 @@ model = AuroraSmall(use_lora=False)
 
 key = jax.random.key(0)
 
-# params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
+# params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointEncoder")
 # params_backbone = ocp.StandardCheckpointer().restore(
-#     "/home1/a/akaush/aurora/checkpointsTillBackbone"
+#     "/home1/a/akaush/aurora/checkpointBackbone"
 # )
-# params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointsTillDecoder")
+# params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointDecoder")
 params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepEncoder")
 params_backbone = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepBackbone")
 params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepDecoder")

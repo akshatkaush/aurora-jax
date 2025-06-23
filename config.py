@@ -21,9 +21,8 @@ gamma = 1.0
 alpha = 1.0 / 4
 beta = 1.0
 
-weight_decay = 5e-6  # This was in your original train.py, adding here for consistency
+weight_decay = 5e-6
 
-# --- Replay Buffer and Training Schedule Configurations ---
 REPLAY_BUFFER_CAPACITY = 200
 DATASET_SAMPLING_PERIOD = 10
 LEAD_TIME_SCHEDULE_STEP_THRESHOLD = 5000

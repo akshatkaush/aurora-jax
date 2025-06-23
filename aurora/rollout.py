@@ -1,4 +1,4 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
+
 
 from functools import partial
 from typing import Generator

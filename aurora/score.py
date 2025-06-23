@@ -155,7 +155,6 @@ def compute_weighted_acc(da_fc, da_true, mean_dims=xr.ALL_DIMS):
     Returns:
         acc: Latitude weighted acc
     """
-
     clim = da_true.mean("time")
     try:
         t = np.intersect1d(da_fc.time, da_true.time)
@@ -173,4 +172,4 @@ def compute_weighted_acc(da_fc, da_true, mean_dims=xr.ALL_DIMS):
     a_prime = a - a.mean()
 
     acc = np.sum(w * fa_prime * a_prime) / np.sqrt(np.sum(w * fa_prime**2) * np.sum(w * a_prime**2))
-    return acc
+    return acc7hauz

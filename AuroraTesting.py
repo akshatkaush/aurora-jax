@@ -207,16 +207,16 @@ abstract_dec = jax.tree_util.tree_map(ocp_utils.to_shape_dtype_struct, abstract_
 
 # 3) restore into those skeletons
 ckpt = ocp.StandardCheckpointer()
-enc = ckpt.restore("/home1/a/akaush/aurora/checkpoints", {"encoder": abstract_enc})
-bb = ckpt.restore("/home1/a/akaush/aurora/checkpointsTillBackbone", {"backbone": abstract_bb})
-dec = ckpt.restore("/home1/a/akaush/aurora/checkpointsTillDecoder", {"decoder": abstract_dec})
+enc = ckpt.restore("/home1/a/akaush/aurora/checkpointEncoder", {"encoder": abstract_enc})
+bb = ckpt.restore("/home1/a/akaush/aurora/checkpointBackbone", {"backbone": abstract_bb})
+dec = ckpt.restore("/home1/a/akaush/aurora/checkpointDecoder", {"decoder": abstract_dec})
 
 
-params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpoints")
+params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointEncoder")
 params_backbone = ocp.StandardCheckpointer().restore(
-    "/home1/a/akaush/aurora/checkpointsTillBackbone"
+    "/home1/a/akaush/aurora/checkpointBackbone"
 )
-params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointsTillDecoder")
+params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointDecoder")
 params = {
     "encoder": params_encoder["encoder"],
     "backbone": params_backbone["backbone"],

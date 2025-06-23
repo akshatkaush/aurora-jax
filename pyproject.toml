@@ -4,39 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "microsoft-aurora"
-description = "Implementation of the Aurora model"
-authors = [
-    {name = "Cris Bodnar", email = "crisbodnar96@gmail.com"},
-    {name = "Wessel Bruinsma", email = "wbruinsma@microsoft.com"},
-    {name = "Ana Lucic", email = "ana.lucic@microsoft.com"},
-    {name = "Megan Stanley", email = "meganstanley@microsoft.com"},
-    {name = "Patrick Garvan", email = "pgarvan@microsoft.com"},
-    {name = "Johannes Brandstetter", email = "brandstetter@ml.jku.at"},
-    {name = "Richard E. Turner", email = "t-rturner@microsoft.com"},
-    {name = "Paris Perdikaris", email = "paperdikaris@microsoft.com"},
-]
-license = {file = "LICENSE.txt"}
-readme = "README.md"
-keywords = [
-    "aurora model",
-	"atmospheric dynamics",
-    "atmospheric chemistry",
-    "ocean waves",
-    "tropical cyclone tracking",
-    "weather prediction",
-    "foundation models",
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Development Status :: 5 - Production/Stable",
-]
 dynamic = ["version"]
-
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "scipy",
     "torch",
+    "torchvision",
     "einops",
     "timm==0.6.13",
     "huggingface-hub",
@@ -44,6 +18,27 @@ dependencies = [
     "xarray",
     "netcdf4",
     "azure-storage-blob",
+    "jax",
+    "jaxlib",
+    "flax",
+    "optax",
+    "chex",
+    "scikit-learn",
+    "pandas",
+    "matplotlib",
+    "tqdm",
+    "wandb",
+    "fastapi",
+    "uvicorn",
+    "cdsapi",
+    "zarr",
+    "nvitop",
+    "dask",
+    "distributed",
+    "fsspec",
+    "pillow",
+    "pyarrow",
+    "psutil",
 ]
 
 [project.optional-dependencies]
@@ -51,18 +46,10 @@ dev = [
     "wheel",
     "build",
     "ghp-import",
-    "pytest",
-    "pytest-cov",
     "requests_mock",
-    "mypy",
-    "ruff==0.4.1",
-    "pre-commit",
     "jupyter-book",
     "mlflow",
 ]
-
-[project.urls]
-repository = "https://github.com/microsoft/aurora"
 
 [tool.hatch.build]
 include = ["aurora*", "LICENSE"]
@@ -75,41 +62,4 @@ version-file = "aurora/_version.py"
 
 [tool.coverage.run]
 branch = true
-command_line = "-m pytest --verbose test"
 source = ["aurora"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests/", "aurora", "docs"]
-addopts = [
-    "-ra",
-    "-p",
-    "no:doctest",
-]
-minversion = "6.0"
-
-[tool.ruff]
-src = ["aurora"]
-target-version = "py38"
-line-length = 100
-extend-include = ["*.ipynb"]
-
-[tool.ruff.lint]
-select = [
-    "B",  # flake8-bugbear
-    "D410",
-    "E", "W",  # pycodestyle
-    "F",  # Pyflakes
-    "I",  # isort
-    "SIM",  # flake8-simplify
-    "UP",  # pyupgrade
-]
-ignore = ["F811", "B018"]
-
-[tool.ruff.lint.isort]
-known-local-folder = ["aurora"]
-
-[tool.ruff.format]
-docstring-code-format = true
-
-[tool.mypy]
-ignore_errors = true

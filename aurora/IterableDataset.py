@@ -22,6 +22,69 @@ atmos_map = {
 }
 
 
+def collate_aurora_batches(batch_list):
+    """
+    Collate function to stack individual Aurora samples into proper batches.
+    For n GPUs, this creates batch size n from n individual samples.
+    
+    Args:
+        batch_list: List of (input_batch, target_batches) tuples
+        
+    Returns:
+        Tuple of (stacked_input_batch, list_of_stacked_target_batches)
+    """
+    num_samples = len(batch_list)
+    if num_samples == 0:
+        raise ValueError("Empty batch_list provided")
+    
+    # Stack input batches
+    input_batches = [item[0] for item in batch_list]
+    target_batches_list = [item[1] for item in batch_list]
+    
+    # Stack surf_vars
+    stacked_surf_vars = {}
+    for key in input_batches[0].surf_vars.keys():
+        stacked_surf_vars[key] = jnp.concatenate([b.surf_vars[key] for b in input_batches], axis=0)
+    
+    # Stack atmos_vars  
+    stacked_atmos_vars = {}
+    for key in input_batches[0].atmos_vars.keys():
+        stacked_atmos_vars[key] = jnp.concatenate([b.atmos_vars[key] for b in input_batches], axis=0)
+    
+    # Use static_vars and metadata from first sample (they should be identical)
+    stacked_input = Batch(
+        surf_vars=stacked_surf_vars,
+        static_vars=input_batches[0].static_vars,
+        atmos_vars=stacked_atmos_vars,
+        metadata=input_batches[0].metadata,
+    )
+    
+    # Stack target batches for each rollout step
+    stacked_target_batches = []
+    for step_idx in range(len(target_batches_list[0])):
+        target_step_batches = [target_list[step_idx] for target_list in target_batches_list]
+        
+        # Stack surf_vars for this step
+        stacked_step_surf = {}
+        for key in target_step_batches[0].surf_vars.keys():
+            stacked_step_surf[key] = jnp.concatenate([b.surf_vars[key] for b in target_step_batches], axis=0)
+        
+        # Stack atmos_vars for this step
+        stacked_step_atmos = {}
+        for key in target_step_batches[0].atmos_vars.keys():
+            stacked_step_atmos[key] = jnp.concatenate([b.atmos_vars[key] for b in target_step_batches], axis=0)
+        
+        stacked_step_batch = Batch(
+            surf_vars=stacked_step_surf,
+            static_vars=target_step_batches[0].static_vars,
+            atmos_vars=stacked_step_atmos,
+            metadata=target_step_batches[0].metadata,
+        )
+        stacked_target_batches.append(stacked_step_batch)
+    
+    return stacked_input, stacked_target_batches
+
+
 class HresT0SequenceDataset(IterableDataset):
     """
     Yields (input_batch, target_batch):
@@ -44,7 +107,7 @@ class HresT0SequenceDataset(IterableDataset):
             ds = ds_full.sel(time=slice("2022-01-01", "2022-12-31"))
         self.ds = ds[list(surf_map.values()) + list(atmos_map.values())]
 
-        static_ds = xr.open_dataset("/home1/a/akaush/aurora/datasetEnviousScratch/static.nc")
+        static_ds = xr.open_dataset("/scratch/akaush/dataset/static.nc")
         self.static_vars = {
             "z": jnp.array(static_ds["z"].values[0]),
             "slt": jnp.array(static_ds["slt"].values[0]),
@@ -99,8 +162,6 @@ class HresT0SequenceDataset(IterableDataset):
                 metadata=meta_in,
             )
 
-            # todo instead of this list, have a collate function which
-            # stacks the timestamps with increasing batch_size.
             out_batch_list = []
             temp_i = i
             for _ in range(self.rollout_steps):

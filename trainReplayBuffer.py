@@ -280,12 +280,12 @@ def main():
     parser.add_argument("--warmup_steps", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--rollout_steps", type=int, default=1)
-    parser.add_argument("--ckpt_encoder", type=str, default="/home1/a/akaush/aurora/checkpoints")
+    parser.add_argument("--ckpt_encoder", type=str, default="/home1/a/akaush/aurora/checkpointEncoder")
     parser.add_argument(
-        "--ckpt_backbone", type=str, default="/home1/a/akaush/aurora/checkpointsTillBackbone"
+        "--ckpt_backbone", type=str, default="/home1/a/akaush/aurora/checkpointBackbone"
     )
     parser.add_argument(
-        "--ckpt_decoder", type=str, default="/home1/a/akaush/aurora/checkpointsTillDecoder"
+        "--ckpt_decoder", type=str, default="/home1/a/akaush/aurora/checkpointDecoder"
     )
     parser.add_argument(
         "--lora_learning_rate",
@@ -383,7 +383,7 @@ def main():
         print("Successfully loaded and merged parameters with LoRA structure")
 
     except Exception as e:
-        print(f"Error loading checkpoints: {e}")
+        print(f"Error loading checkpointEncoder: {e}")
         print("Using randomly initialized parameters")
         # full_params already contains the initialized LoRA parameters
 

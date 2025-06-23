@@ -1,11 +1,3 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license.
-
-Code adapted from
-
-    https://github.com/microsoft/Swin-Transformer/blob/main/models/swin_transformer_v2.py
-
-"""
-
 import itertools
 from datetime import timedelta
 from typing import Callable, List, Optional, Tuple

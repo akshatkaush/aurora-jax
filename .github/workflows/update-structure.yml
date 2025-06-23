@@ -37,9 +37,9 @@
 #             aurora
 #             JaxIndividualComponentsBenchmarking.ipynb
 #             dataset
-#             checkpointsTillBackbone
-#             checkpointsTillDecoder
-#             checkpoints
+#             checkpointBackbone
+#             checkpointDecoder
+#             checkpointEncoder
 #             DownloadERA5.py
 #             AuroraTesting.py
 #             LICENSE

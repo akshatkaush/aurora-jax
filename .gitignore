@@ -13,8 +13,8 @@ venv
 dist
 pip-wheel-metadata
 
-# Notebook checkpoints
-.ipynb_checkpoints
+# Notebook checkpointEncoder
+.ipynb_checkpointEncoder
 
 # Documentation and coverage
 docs/_build
@@ -30,13 +30,16 @@ htmlcov
 *.swp
 .envrc
 
-checkpoints/
-checkpointsTillEncoder/
-checkpointsTillBackbone/
-checkpointsTillDecoder/
+checkpointEncoder/
+checkpointEncoder/
+checkpointBackbone/
+checkpointDecoder/
 datasetEnviousScratch/
 shardingStoreTemp/
 mlflow_tmp/
 aurora_mlflow_pyfunc/
 mlruns/
 outputs/
+hresDataset/
+dataset/
+.vscode/

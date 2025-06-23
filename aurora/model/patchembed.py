@@ -1,5 +1,3 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license."""
-
 import math
 from typing import Any, Optional, Tuple
 
@@ -7,7 +5,7 @@ import flax
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
-from timm.models.layers.helpers import to_2tuple
+from timm.layers.helpers import to_2tuple
 
 __all__ = ["LevelPatchEmbed"]
 
@@ -76,20 +74,14 @@ class LevelPatchEmbed(nn.Module):
         assert W % self.kernel_size[2] == 0, f"{W} % {self.kernel_size[2]} != 0."
         assert len(set(var_names)) == len(var_names), f"{var_names} contains duplicates."
 
-        # Select the weights of the variables and history dimensions that are present in the batch
         weight_list = []
         for name in var_names:
-            # Select the appropriate time slices if T < history_size
             weight = self.weights[name][:, :, :T, ...]
             weight_list.append(weight)
 
-        # Concatenate weights along the input channel dimension
         weight = jnp.concatenate(weight_list, axis=1)
 
-        # Adjust the stride if history is smaller than maximum
         stride = (T,) + self.kernel_size[1:]
-
-        # Perform 3D convolution
         proj = jax.lax.conv_general_dilated(
             x,
             weight,
@@ -101,9 +93,7 @@ class LevelPatchEmbed(nn.Module):
         proj += jnp.reshape(self.bias, (1, -1, 1, 1, 1))
 
         if self.flatten:
-            # Reshape to (B, D, L)
             proj = jnp.reshape(proj, (B, self.embed_dim, -1))
-            # Transpose to (B, L, D)
             proj = jnp.transpose(proj, (0, 2, 1))
 
         return self.norm(proj)
