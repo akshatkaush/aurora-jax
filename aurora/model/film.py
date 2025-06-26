@@ -1,9 +1,4 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license.
-
-`AdaptiveLayerNorm` was inspired by the following file:
-
-    https://github.com/facebookresearch/DiT/blob/ed81ce2229091fd4ecc9a223645f95cf379d582b/models.py#L101
-"""
+"""FiLM (Feature-wise Linear Modulation) layer implementation."""
 
 import flax.linen as nn
 import jax.numpy as jnp

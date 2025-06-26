@@ -1,7 +1,4 @@
-"""Copyright (c) Microsoft Corporation. Licensed under the MIT license.
-
-Package the model with MLflow.
-"""
+"""MLflow packaging utilities for Aurora weather forecasting model."""
 
 from pathlib import Path
 

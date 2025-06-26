@@ -24,8 +24,8 @@ atmos_map = {
 
 def collate_aurora_batches(batch_list):
     """
-    Collate function to stack individual Aurora samples into proper batches.
-    For n GPUs, this creates batch size n from n individual samples.
+    Optimized collate function for multi-GPU training.
+    Efficiently stacks individual Aurora samples into proper batches.
     
     Args:
         batch_list: List of (input_batch, target_batches) tuples
@@ -37,43 +37,57 @@ def collate_aurora_batches(batch_list):
     if num_samples == 0:
         raise ValueError("Empty batch_list provided")
     
-    # Stack input batches
+    # Extract input batches and target batches lists
     input_batches = [item[0] for item in batch_list]
     target_batches_list = [item[1] for item in batch_list]
     
-    # Stack surf_vars
+    # Get reference structures from first sample
+    first_input = input_batches[0]
+    first_targets = target_batches_list[0]
+    
+    # Stack surf_vars efficiently using jnp.stack instead of concatenate
     stacked_surf_vars = {}
-    for key in input_batches[0].surf_vars.keys():
-        stacked_surf_vars[key] = jnp.concatenate([b.surf_vars[key] for b in input_batches], axis=0)
+    for key in first_input.surf_vars.keys():
+        # Stack along new first dimension (batch dimension)
+        surf_arrays = [b.surf_vars[key] for b in input_batches]
+        stacked_surf_vars[key] = jnp.stack(surf_arrays, axis=0)
     
-    # Stack atmos_vars  
+    # Stack atmos_vars efficiently  
     stacked_atmos_vars = {}
-    for key in input_batches[0].atmos_vars.keys():
-        stacked_atmos_vars[key] = jnp.concatenate([b.atmos_vars[key] for b in input_batches], axis=0)
+    for key in first_input.atmos_vars.keys():
+        # Stack along new first dimension (batch dimension)
+        atmos_arrays = [b.atmos_vars[key] for b in input_batches]
+        stacked_atmos_vars[key] = jnp.stack(atmos_arrays, axis=0)
     
-    # Use static_vars and metadata from first sample (they should be identical)
+    # Create stacked input batch
     stacked_input = Batch(
         surf_vars=stacked_surf_vars,
-        static_vars=input_batches[0].static_vars,
+        static_vars=first_input.static_vars,  # Static vars are the same across samples
         atmos_vars=stacked_atmos_vars,
-        metadata=input_batches[0].metadata,
+        metadata=first_input.metadata,  # Metadata is the same across samples
     )
     
     # Stack target batches for each rollout step
+    num_rollout_steps = len(first_targets)
     stacked_target_batches = []
-    for step_idx in range(len(target_batches_list[0])):
+    
+    for step_idx in range(num_rollout_steps):
+        # Get all target batches for this rollout step
         target_step_batches = [target_list[step_idx] for target_list in target_batches_list]
         
         # Stack surf_vars for this step
         stacked_step_surf = {}
         for key in target_step_batches[0].surf_vars.keys():
-            stacked_step_surf[key] = jnp.concatenate([b.surf_vars[key] for b in target_step_batches], axis=0)
+            surf_arrays = [b.surf_vars[key] for b in target_step_batches]
+            stacked_step_surf[key] = jnp.stack(surf_arrays, axis=0)
         
         # Stack atmos_vars for this step
         stacked_step_atmos = {}
         for key in target_step_batches[0].atmos_vars.keys():
-            stacked_step_atmos[key] = jnp.concatenate([b.atmos_vars[key] for b in target_step_batches], axis=0)
+            atmos_arrays = [b.atmos_vars[key] for b in target_step_batches]
+            stacked_step_atmos[key] = jnp.stack(atmos_arrays, axis=0)
         
+        # Create stacked target batch for this step
         stacked_step_batch = Batch(
             surf_vars=stacked_step_surf,
             static_vars=target_step_batches[0].static_vars,
