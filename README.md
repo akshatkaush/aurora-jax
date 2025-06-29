@@ -250,6 +250,33 @@ python longRolloutTrain.py \
 
 The script automatically separates LoRA and base parameters, applies different learning rates, and manages gradient flow through the long rollout sequences.
 
+### Multi-GPU Training
+
+The `train_multi_gpu.py` script provides scalable multi-GPU training using JAX's data parallelism:
+
+```bash
+python train_multi_gpu.py \
+    --total_batch_size 8 \
+    --learning_rate 5e-5 \
+    --rollout_steps 4 \
+    --epochs 30
+```
+
+#### Key Features:
+
+- **Data Parallelism**: Model replicated on each GPU, data distributed across GPUs
+- **Automatic Scaling**: Works with any number of available GPUs
+- **Smart Batch Distribution**: Automatically distributes `total_batch_size` evenly across GPUs
+- **Memory Optimization**: Configures XLA for stable multi-GPU operation (80% memory usage)
+
+#### Training Arguments:
+
+- `--total_batch_size`: Total batch size distributed across all GPUs (default: 2)
+- `--gradient_accumulation_steps`: Accumulate gradients for larger effective batch sizes (default: 1)
+- All standard arguments from `train.py` are supported
+
+The implementation follows Aurora paper's approach with model replication and gradient synchronization across GPUs. Each GPU processes different samples while maintaining identical parameters, providing linear speedup with GPU count.
+
 ## WIP (Work in Progress)
 
 ### Replay Buffer Training
