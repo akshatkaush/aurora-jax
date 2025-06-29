@@ -1,233 +1,308 @@
-# Aurora Multi-GPU Training
+# Introduction
 
-This repository contains a refactored and clean implementation of Aurora weather forecasting model training with multi-GPU support using JAX data parallelism.
+This repository contains a comprehensive implementation of the Aurora weather forecasting model with JAX/Flax, inspired by the original [Microsoft Aurora](https://github.com/microsoft/aurora) repository. Aurora is a state-of-the-art foundation model for Earth system forecasting that can predict atmospheric variables, air pollution, and ocean waves.
+
+This implementation provides:
+- **JAX/Flax-based training** with multi-GPU support using data parallelism
+- **Clean, modular code structure** with comprehensive training utilities
+- **Multiple training strategies** including standard training, long rollout training, and replay buffer training
+- **ERA5 and HRES dataset support** with automated data downloading
+- **Weight conversion utilities** to convert PyTorch weights to JAX format
+- **Forward pass evaluation** capabilities for both ERA5 and HRES datasets
+
+![Aurora Architecture](outputImagesAndResults/aurora-architecture.png)
 
 ## Overview
 
-The Aurora model is a state-of-the-art neural weather prediction model. This implementation provides:
+Aurora is a foundation model for Earth system forecasting that can predict multiple atmospheric and oceanic variables. The model uses a transformer-based architecture with specialized encoders and decoders for different variable types (surface, atmospheric, and static variables).
 
-- **Multi-GPU training** with data parallelism following the Aurora paper approach
-- **Clean, modular code structure** with separated configuration and utilities
-- **Configurable training parameters** via command line or configuration classes
-- **Comprehensive logging** with Weights & Biases integration
-- **Robust checkpoint management** for reliable training
+This implementation focuses on:
+- **Multi-step rollout training** following the Aurora paper methodology
+- **LoRA (Low-Rank Adaptation) fine-tuning** for efficient parameter updates
+- **Comprehensive evaluation metrics** including MAE and RMSE
+- **Flexible training configurations** for different use cases
+
+### Model Performance Comparisons
+
+The following images show comparisons between Aurora predictions and ground truth for different variable types:
+
+**Atmospheric Variables Comparison:**
+![Atmospheric Variables Comparison](outputImagesAndResults/compare_atm_truth_row.png)
+
+**Surface Variables Comparison:**
+![Surface Variables Comparison](outputImagesAndResults/compare_surf_truth_row.png)
+
+For detailed quantitative analysis, please refer to the CSV file `outputImagesAndResults/aurora_rmse_mae - RMSE_MAE_errors_aurora.csv` which contains RMSE and MAE error metrics for different variables and time steps. **Note: These values are not normalized.**
 
 ## Code Structure
 
 ```
-├── aurora_train.py          # Main training script
-├── config.py               # Configuration classes and parameters
-├── training_utils.py       # Multi-GPU utilities and helper functions
-└── README.md              # This file
+├── aurora/                          # Main Aurora model implementation
+├── outputImagesAndResults/          # Results, images, and error analysis
+│   ├── aurora-architecture.png
+│   ├── compare_atm_truth_row.png
+│   ├── compare_surf_truth_row.png
+│   └── aurora_rmse_mae - RMSE_MAE_errors_aurora.csv
+├── config.py                       # Training configuration and hyperparameters
+├── train.py                        # Standard training script
+├── longRolloutTrain.py             # Long rollout training with LoRA
+├── trainReplayBuffer.py            # Training with replay buffer (WIP)
+├── replay_buffer.py                # Replay buffer implementation
+├── weightConversion.py             # PyTorch to JAX weight conversion
+├── downloadERA5.py                 # ERA5 dataset download utility
+├── downloadHRES.py                 # HRES dataset download utility
+├── auroraTestERA5.py               # ERA5 forward pass evaluation
+├── auroraTestHRES.py               # HRES forward pass evaluation
+├── checkpointEncoder/              # Pre-trained encoder weights
+├── checkpointBackbone/             # Pre-trained backbone weights
+├── checkpointDecoder/              # Pre-trained decoder weights
+├── dataset/                        # Dataset storage directory
+└── hresDataset/                    # HRES dataset storage
 ```
 
-### Key Files
+### Untracked Files
 
-- **`aurora_train.py`**: Main training script with clean argument parsing and training loop
-- **`config.py`**: Centralized configuration management with `TrainingConfig` dataclass
-- **`training_utils.py`**: Multi-GPU setup, data sharding, and training utilities
+The following files are not tracked in the repository but should be present:
 
-## Requirements
+- **Static data file**: Should be placed at the path specified in `config.py` (currently `/home1/a/akaush/aurora/datasetEnviousScratch/static.nc`)
+- **ERA5/HRES datasets**: Will be downloaded automatically using the provided scripts
+- **Model checkpoints**: Should be downloaded from the Google Drive link below
 
-- JAX with GPU support
-- Flax
-- Optax
-- Orbax (for checkpointing)
-- PyTorch (for data loading)
-- Weights & Biases (optional, for logging)
+## Model Weights Download
 
-## Installation
+Download the pre-trained JAX model weights from this Google Drive link:
+
+**[Download Aurora JAX Weights](https://drive.google.com/drive/folders/1u3sZJ6TwaXg96GFOVOkgVdIg7KUZKRdw?usp=sharing)**
+
+The drive contains:
+- `checkpointEncoder/` - Encoder weights in JAX PyTree format
+- `checkpointBackbone/` - Backbone weights in JAX PyTree format  
+- `checkpointDecoder/` - Decoder weights in JAX PyTree format
+
+**Note**: These weights were converted in a single GPU environment. You may need to handle sharding issues if using multiple GPUs. The weights are provided as JAX PyTrees and may require adjustment for your specific multi-GPU setup.
+
+## Dependencies Setup
+
+Install the required dependencies:
 
 ```bash
 # Install JAX with GPU support
 pip install "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-# Install other dependencies
-pip install flax optax orbax-checkpoint torch wandb
+# Install core dependencies
+pip install flax optax orbax-checkpoint
+
+# Install data handling dependencies
+pip install torch torchvision
+pip install xarray zarr netcdf4
+pip install cdsapi  # For ERA5 downloads
+pip install weatherbench2  # For HRES downloads
+
+# Install visualization and logging
+pip install matplotlib wandb
+pip install numpy pandas
+
+# Install the Aurora package
+pip install microsoft-aurora
 ```
 
-## Usage
+## Weight Conversion
 
-### Basic Usage
+The `weightConversion.py` file provides utilities to convert pre-trained PyTorch Aurora weights to JAX format. This script:
+
+- Loads PyTorch checkpoints from the original Aurora implementation
+- Converts parameter names and structures to match JAX/Flax conventions
+- Handles device placement and dtype conversions
+- Saves the converted weights in JAX PyTree format
+
+Usage:
+```python
+python weightConversion.py --pytorch_ckpt_path /path/to/pytorch/checkpoint --output_path /path/to/jax/checkpoint
+```
+
+The conversion process ensures compatibility between the original PyTorch implementation and this JAX-based version.
+
+## Forward Pass Evaluation
+
+### ERA5 Dataset
+
+**Download ERA5 Data:**
+```bash
+python downloadERA5.py
+```
+
+This script uses the CDS (Climate Data Store) API to download ERA5 reanalysis data. You'll need to:
+1. Register at the [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/)
+2. Install your API key as described in the CDS documentation
+
+**Run Forward Pass:**
+```bash
+python auroraTestERA5.py
+```
+
+This script performs forward pass evaluation on ERA5 data and generates prediction visualizations.
+
+![ERA5 Forward Pass Results](outputImagesAndResults/era5_forward_pass_example.png)
+
+### HRES Dataset
+
+**Download HRES Data:**
+```bash
+python downloadHRES.py
+```
+
+This script uses WeatherBench2 to download high-resolution ECMWF forecasts. HRES data provides higher spatial resolution compared to ERA5.
+
+**Run Forward Pass:**
+```bash
+python auroraTestHRES.py
+```
+
+**Note**: ERA5 can also be downloaded using WeatherBench2 as an alternative to the CDS API. Both methods are supported for flexibility.
+
+## Training
+
+### Standard Training
+
+Start fine-tuning using the `train.py` script:
 
 ```bash
-# Train with default configuration
-python aurora_train.py \
-    --dataset_path /path/to/your/dataset.zarr \
-    --checkpoint_dir /path/to/pretrained/checkpointEncoder \
-    --output_dir ./outputs
-
-# Train with custom parameters
-python aurora_train.py \
-    --num_gpus 4 \
-    --batch_size 8 \
-    --learning_rate 1e-4 \
-    --epochs 50 \
-    --dataset_path /path/to/dataset.zarr \
-    --checkpoint_dir /path/to/checkpointEncoder \
-    --output_dir ./outputs
+python train.py \
+    --batch_size 2 \
+    --learning_rate 5e-5 \
+    --epochs 20 \
+    --rollout_steps 4 \
+    --ckpt_encoder /path/to/checkpointEncoder \
+    --ckpt_backbone /path/to/checkpointBackbone \
+    --ckpt_decoder /path/to/checkpointDecoder
 ```
 
-### Configuration
+#### Training Arguments
 
-You can configure training by either:
+- `--batch_size`: Batch size for training (default: 1)
+- `--learning_rate`: Learning rate for optimizer (default: 5e-5)
+- `--warmup_steps`: Number of warmup steps for learning rate schedule (default: 1000)
+- `--epochs`: Number of training epochs (default: 20)
+- `--rollout_steps`: Number of rollout prediction steps (default: 1)
+- `--history_time_dim`: Number of historical time steps (default: 2)
+- `--average_rollout_loss`: Whether to average loss across rollout steps (default: True)
 
-1. **Command line arguments** (shown above)
-2. **Modifying the `TrainingConfig` class** in `config.py`
+#### Multi-Step Rollout Logic
 
-Key configuration parameters:
+The training implements multi-step rollout following the Aurora paper:
+
+1. **Input Preparation**: Take initial atmospheric and surface conditions
+2. **Rollout Prediction**: Generate predictions for multiple time steps ahead
+3. **Loss Calculation**: 
+   - If `average_rollout_loss=True`: Average MAE loss across all rollout steps
+   - If `average_rollout_loss=False`: Use only the last rollout step for loss
+4. **Gradient Update**: Update model parameters based on computed gradients
+
+This approach helps the model learn long-term dependencies and improve forecast accuracy over extended time horizons.
+
+#### Configuration
+
+The `config.py` file contains important training parameters:
 
 ```python
-@dataclass
-class TrainingConfig:
-    # Model parameters
-    batch_size: int = 2              # Total batch size across all GPUs
-    learning_rate: float = 5e-5      # Peak learning rate
-    epochs: int = 20                 # Number of training epochs
-    rollout_steps: int = 1           # Number of rollout prediction steps
-    
-    # GPU configuration
-    num_gpus: int = 2                # Number of GPUs to use
-    
-    # Data parameters
-    dataset_path: str = "data/hres_dataset.zarr"
-    num_workers: int = 4             # DataLoader workers
-    
-    # Checkpoint paths
-    checkpoint_encoder: str = "checkpointEncoder/encoder"
-    checkpoint_backbone: str = "checkpointEncoder/backbone"
-    checkpoint_decoder: str = "checkpointEncoder/decoder"
-    
-    # Output directories
-    output_dir: str = "outputs"
-    
-    # Training options
-    average_rollout_loss: bool = True    # Average loss across rollout steps
-    save_every_n_steps: int = 200       # Checkpoint saving frequency
-    
-    # Wandb configuration
-    wandb_project: str = "aurora-rollout-training"
-    use_wandb: bool = True
+# Loss function weights for different variables
+surf_weights = {"2t": 3.5, "10u": 0.77, "10v": 0.66, "msl": 1.6}
+atmos_weights = {"z": 3.5, "q": 0.8, "t": 1.7, "u": 0.87, "v": 0.6}
+
+# Training hyperparameters
+gamma = 1.0          # Loss scaling parameter
+alpha = 1.0 / 4      # Atmospheric loss weight
+beta = 1.0           # Surface loss weight
+weight_decay = 5e-6  # L2 regularization
+
+# Replay buffer configuration
+REPLAY_BUFFER_CAPACITY = 200
+DATASET_SAMPLING_PERIOD = 10
 ```
 
-## Multi-GPU Training
+### Long Rollout Training
 
-The implementation uses **data parallelism** following the Aurora paper approach:
+The `longRolloutTrain.py` script provides advanced training with LoRA (Low-Rank Adaptation):
 
-- **Model replication**: Full model is copied to each GPU
-- **Data sharding**: Each GPU processes different data samples
-- **Gradient synchronization**: Gradients are averaged across GPUs
-
-### GPU Requirements
-
-- The code automatically detects available GPUs
-- Batch size must be divisible by the number of GPUs
-- Each GPU will process `batch_size / num_gpus` samples
-
-Example for 4 GPUs with batch size 8:
-- Each GPU processes 2 samples per batch
-- Model parameters are replicated on all 4 GPUs
-- Gradients are synchronized across all GPUs
-
-## Data Format
-
-The training expects data in Zarr format with the structure used by the Aurora dataset. The data loader should provide:
-
-- **Input batch**: Initial atmospheric and surface conditions
-- **Target batches**: Sequence of target states for rollout training
-
-## Checkpointing
-
-The implementation provides robust checkpointing:
-
-- **Loading**: Automatically loads pre-trained encoder, backbone, and decoder checkpointEncoder
-- **Saving**: Saves checkpointEncoder every N steps (configurable)
-- **Recovery**: Can resume training from saved checkpointEncoder
-
-Checkpoint structure:
-```
-checkpointEncoder/
-├── encoder/     # Encoder model weights
-├── backbone/    # Backbone model weights
-└── decoder/     # Decoder model weights
-```
-
-## Logging
-
-Training metrics are logged to:
-
-- **Console**: Progress updates and validation metrics
-- **Weights & Biases**: Detailed training curves and hyperparameters (if enabled)
-
-Logged metrics include:
-- Training/validation MAE and RMSE
-- Learning rate schedule
-- Gradient norms
-- Training progress
-
-## Example Output
-
-```
-🚀 Starting Aurora multi-GPU training:
-   • 4 GPUs with data parallelism
-   • Batch size: 8 (2 per GPU)
-   • Epochs: 50
-   • Learning rate: 5e-05
-   • Rollout steps: 1
-   • Output directory: ./outputs
-
-✓ Validated GPU setup: 4 GPUs available
-✓ Batch size 8 will use 2 samples per GPU
-✓ Successfully loaded all model checkpointEncoder
-
-Epoch  1 — Validation MAE: 0.0234, RMSE: 0.0456
-Epoch  2 — Validation MAE: 0.0218, RMSE: 0.0431
-...
-✓ Saved checkpoint at step 200
-✓ Saved checkpoint at step 400
-...
-Epoch 50 — Validation MAE: 0.0156, RMSE: 0.0298
-
-✅ Training completed successfully!
-```
-
-## Customization
-
-The modular structure makes it easy to customize:
-
-- **Model architecture**: Modify the model initialization in `aurora_train.py`
-- **Loss functions**: Update loss computation in the training step
-- **Data loading**: Modify `create_data_loaders()` in `training_utils.py`
-- **Multi-GPU strategy**: Adjust sharding in `setup_mesh_and_sharding()`
-
-## Troubleshooting
-
-**GPU Detection Issues**:
 ```bash
-# Check JAX can see your GPUs
-python -c "import jax; print(jax.devices())"
+python longRolloutTrain.py \
+    --batch_size 1 \
+    --learning_rate 5e-5 \
+    --lora_learning_rate 1e-4 \
+    --rollout_steps 8 \
+    --freeze_base \
+    --epochs 50
 ```
 
-**Memory Issues**:
-- Reduce batch size
-- Reduce number of workers in data loader
-- Use gradient checkpointing if available
+#### Key Features:
 
-**Checkpoint Loading Errors**:
-- Verify checkpoint paths exist
-- Check checkpoint format compatibility
-- Review the checkpoint loading function output
+1. **LoRA Fine-tuning**: Freezes base model parameters and only trains low-rank adaptation matrices
+2. **Longer Rollouts**: Supports extended rollout sequences (8+ steps)
+3. **Parameter Efficiency**: Significantly reduces the number of trainable parameters
+4. **Gradient Stopping**: Uses stop-gradient techniques to prevent vanishing gradients in long rollouts
 
-## Contributing
+#### LoRA Benefits:
 
-When contributing to this codebase:
+- **Memory Efficient**: Only stores gradients for LoRA parameters
+- **Faster Training**: Fewer parameters to update per step
+- **Stable Training**: Avoids catastrophic forgetting of pre-trained knowledge
+- **Better Generalization**: Maintains pre-trained model performance while adapting to new data
 
-1. Follow the modular structure (separate configs, utilities, and main logic)
-2. Add proper type hints and docstrings
-3. Keep paths configurable (avoid hardcoding)
-4. Add validation for new configuration parameters
-5. Update this README for any new features
+The script automatically separates LoRA and base parameters, applies different learning rates, and manages gradient flow through the long rollout sequences.
 
-## License
+## WIP (Work in Progress)
 
-[Add your license information here]
+### Replay Buffer Training
+
+The repository includes experimental replay buffer training functionality:
+
+#### `replay_buffer.py`
+
+Implements a replay buffer for storing and sampling training batches:
+
+```python
+class ReplayBuffer:
+    def __init__(self, capacity: int, seed: int = 0)
+    def add(self, batch: Batch)           # Add batch to buffer
+    def sample(self) -> Batch             # Sample random batch
+    def extend(self, batches: List[Batch]) # Add multiple batches
+    def clear(self)                       # Clear buffer
+```
+
+**Key Features:**
+- **Fixed Capacity**: Maintains a maximum number of stored batches
+- **CPU Storage**: Stores batches on CPU to save GPU memory
+- **GPU Sampling**: Moves sampled batches to GPU for training
+- **Random Sampling**: Provides uniform sampling from stored experiences
+
+#### `trainReplayBuffer.py`
+
+Experimental training script using replay buffer methodology:
+
+```bash
+python trainReplayBuffer.py \
+    --batch_size 1 \
+    --rollout_steps 4 \
+    --freeze_base \
+    --lora_learning_rate 1e-4
+```
+
+**Replay Buffer Training Logic:**
+
+1. **Buffer Population**: Fill replay buffer with initial rollout predictions
+2. **Mixed Training**: 
+   - Sample batches from replay buffer for gradient updates
+   - Generate fresh predictions to add to buffer
+   - Balance between replay experience and new experience
+3. **Experience Diversity**: Maintains diverse training examples to prevent overfitting
+4. **Stable Learning**: Reduces correlation between consecutive training samples
+
+**Current Status**: This is experimental code under active development. The replay buffer approach aims to improve training stability and sample efficiency for long rollout sequences.
+
+**Potential Benefits:**
+- Better sample utilization
+- Improved gradient diversity  
+- Reduced training instability
+- More efficient long rollout training
+
+**Note**: This feature is still being developed and may require additional tuning for optimal performance.
