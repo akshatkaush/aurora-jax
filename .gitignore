@@ -31,7 +31,6 @@ htmlcov
 .envrc
 
 checkpointEncoder/
-checkpointEncoder/
 checkpointBackbone/
 checkpointDecoder/
 datasetEnviousScratch/
