@@ -48,7 +48,6 @@ dev = [
     "ghp-import",
     "requests_mock",
     "jupyter-book",
-    "mlflow",
 ]
 
 [tool.hatch.build]
