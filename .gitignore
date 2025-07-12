@@ -30,15 +30,16 @@ htmlcov
 *.swp
 .envrc
 
-checkpointEncoder/
-checkpointBackbone/
-checkpointDecoder/
+checkpointEncoder
+checkpointBackbone
+checkpointDecoder
 datasetEnviousScratch/
 shardingStoreTemp/
 mlflow_tmp/
 aurora_mlflow_pyfunc/
 mlruns/
 outputs/
-hresDataset/
-dataset/
+hresDataset
+dataset
 .vscode/
+wandb/

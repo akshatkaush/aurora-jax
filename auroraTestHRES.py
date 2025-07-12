@@ -41,13 +41,6 @@ def compute_weighted_rmse(pred, batch_true):
             atmos_rmse[f"{key}_{level}"] = weighted_rmse(pred_var, true_var, pred.metadata.lat)
             atmos_mae[f"{key}_{level}"] = weighted_mae(pred_var, true_var, pred.metadata.lat)
 
-    # print("RMSE for surface variables:")
-    # for key, rmse in surf_rmse.items():
-    #     print(f"  {key}: {rmse:.2f}")
-    # print("RMSE for atmospheric variables:")
-    # for key, rmse in atmos_rmse.items():
-    #     print(f"  {key}: {rmse:.2f}")
-
     rows = []
     for k in surf_rmse:
         rows.append({"variable": k, "rmse": surf_rmse[k], "mae": surf_mae[k]})
@@ -132,11 +125,10 @@ def plot_all_vars(
     plt.show()
 
 
-download_path = Path("datasetEnviousScratch")
+download_path = Path("dataset")
 static_vars_ds = xr.open_dataset(download_path / "static.nc", engine="netcdf4")
 
 zarr_path = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
-
 val_ds = HresT0SequenceDataset(zarr_path, mode="val", shuffle=False, seed=0, steps=2)
 
 batch, out_batch_list = next(iter(val_ds))
@@ -145,19 +137,21 @@ model = AuroraSmall(use_lora=False)
 
 key = jax.random.key(0)
 
-# params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointEncoder")
-# params_backbone = ocp.StandardCheckpointer().restore(
-#     "/home1/a/akaush/aurora/checkpointBackbone"
-# )
-# params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointDecoder")
-params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepEncoder")
-params_backbone = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepBackbone")
-params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepDecoder")
+params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointEncoder")["encoder"]
+params_backbone = ocp.StandardCheckpointer().restore(
+    "/home1/a/akaush/aurora/checkpointBackbone"
+)["backbone"]
+params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/aurora/checkpointDecoder")["decoder"]
+
+# UNCOMMENT OUT FOR FINETUNED MODEL ON HRES DATASET
+# params_encoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepEncoder")
+# params_backbone = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepBackbone")
+# params_decoder = ocp.StandardCheckpointer().restore("/home1/a/akaush/tempData/singleStepDecoder")
 
 params = {
-    "encoder": params_encoder["encoder"],
-    "backbone": params_backbone["backbone"],
-    "decoder": params_decoder["decoder"],
+    "encoder": params_encoder,
+    "backbone": params_backbone,
+    "decoder": params_decoder,
 }
 params = jax.device_put(params, device=jax.devices("gpu")[0])
 
@@ -179,21 +173,9 @@ params = jax.device_put(params, device=jax.devices("cpu")[0])
 
 t_idx = 2
 
-# batch_true = batch_true.crop(model.patch_size)
-# surf_weights = {"2t": 1.0, "10u": 1.0, "10v": 1.0, "msl": 1.0}
-# atmos_weights = {
-#     "t": jnp.ones(13) * 0.2,
-#     "u": jnp.ones(13) * 0.2,
-#     "v": jnp.ones(13) * 0.2,
-#     "q": jnp.ones(13) * 0.2,
-#     "z": jnp.ones(13) * 0.2,
-# }
-# # loss_fn = jax.jit(mae_loss_fn)
-# loss_fn = mae_loss_fn
-# loss = loss_fn(preds[0], batch_true, surf_weights, atmos_weights, gamma=0.5)
-# print(f"Loss: {loss:.2f}")
 surf_rmse, atmos_rmse, surf_mae, atmos_mae = compute_weighted_rmse(preds[0], out_batch_list[0])
 
 output_folder = "../tempData"
 save_batch_npz(out_batch_list[0], output_folder, "truth value")
-plot_all_vars(preds[0], t_idx=2, level_idx=0, out_path="outputs/differenceTwoStepTrained.png")
+save_batch_npz(preds[0], output_folder, "jax_values_hres")
+plot_all_vars(preds[0], t_idx=2, level_idx=0, out_path="outputs/differenceOneStepTrained.png")

@@ -26,7 +26,6 @@ WANTED = SURF_VARS + ATMOS_VARS
 
 TIME_SLICE = slice("2020-01-01", "2022-12-31")
 
-# ——— download & trim main t=0 store —————————————————————————————————————
 print(f"→ Opening main t=0 store: {MAIN_ZARR}")
 ds = xr.open_dataset(
     MAIN_ZARR,
