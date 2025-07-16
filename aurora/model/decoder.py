@@ -33,7 +33,7 @@ class Perceiver3DDecoder(nn.Module):
 
     def setup(self):
         # self.level_decoder = nn.remat(PerceiverResampler, static_argnums=(2,))(
-            self.level_decoder = PerceiverResampler(
+        self.level_decoder = PerceiverResampler(
             latent_dim=self.embed_dim,
             context_dim=self.embed_dim,
             depth=self.depth,
