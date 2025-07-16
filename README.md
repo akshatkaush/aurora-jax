@@ -45,7 +45,7 @@ For detailed quantitative analysis, please refer to the CSV file `outputImagesAn
 │   └── aurora_rmse_mae - RMSE_MAE_errors_aurora.csv
 ├── config.py                       # Training configuration and hyperparameters
 ├── train.py                        # Standard training script
-├── long_rollout_train.py           # Long rollout training with LoRA
+├── LORA_train.py                   # Long rollout training with LoRA
 ├── trainReplayBuffer.py            # Training with replay buffer (WIP)
 ├── replay_buffer.py                # Replay buffer implementation
 ├── weight_conversion.py            # PyTorch to JAX weight conversion
@@ -222,10 +222,10 @@ DATASET_SAMPLING_PERIOD = 10
 
 ### Long Rollout Training
 
-The `long_rollout_train.py` script provides advanced training with LoRA (Low-Rank Adaptation):
+The `LORA_train.py` script provides advanced training with LoRA (Low-Rank Adaptation):
 
 ```bash
-python long_rollout_train.py \
+python LORA_train.py \
     --batch_size 1 \
     --learning_rate 5e-5 \
     --lora_learning_rate 1e-4 \

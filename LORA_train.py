@@ -165,7 +165,7 @@ def main():
     parser.add_argument("--learning_rate", type=float, default=5e-5)
     parser.add_argument("--warmup_steps", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--rollout_steps", type=int, default=1)
+    parser.add_argument("--rollout_steps", type=int, default=2)
     parser.add_argument("--ckpt_encoder", type=str, default="/home1/a/akaush/aurora/checkpointEncoder")
     parser.add_argument(
         "--ckpt_backbone", type=str, default="/home1/a/akaush/aurora/checkpointBackbone"
@@ -198,10 +198,10 @@ def main():
     wandb.init(project="aurora-rollout2-long-finetuning", config=vars(args))
     cfg = wandb.config
 
-    # create directories with new names
-    os.makedirs("../tempData/singleStepEncoder", exist_ok=True)
-    os.makedirs("../tempData/singleStepBackbone", exist_ok=True)
-    os.makedirs("../tempData/singleStepDecoder", exist_ok=True)
+    # create directories with new names for 2-step LORA fine tuning
+    os.makedirs("../tempData/twoStepLoraEncoder", exist_ok=True)
+    os.makedirs("../tempData/twoStepLoraBackbone", exist_ok=True)
+    os.makedirs("../tempData/twoStepLoraDecoder", exist_ok=True)
 
     ZARR = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
     ds_train = HresT0SequenceDataset(ZARR, mode="train", steps=cfg.rollout_steps)
@@ -471,9 +471,9 @@ def main():
             if global_step % 200 == 0:
                 # save using the new names
                 for orig, new in [
-                    ("encoder", "singleStepEncoderLoraFrozenBaseStopGradients"),
-                    ("backbone", "singleStepBackboneLoraFrozenBaseStopGradients"),
-                    ("decoder", "singleStepDecoderLoraFrozenBaseStopGradients"),
+                    ("encoder", "twoStepLoraEncoder"),
+                    ("backbone", "twoStepLoraBackbone"),
+                    ("decoder", "twoStepLoraDecoder"),
                 ]:
                     ckpt.save(f"/home1/a/akaush/tempData/{new}", state.params[orig], force=True)
                 print(f"Saved checkpoint at step {global_step}")

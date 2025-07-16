@@ -29,16 +29,16 @@ CHECKPOINT_BACKBONE = str(Path("checkpointBackbone").resolve())
 CHECKPOINT_DECODER = str(Path("checkpointDecoder").resolve())
 
 # Finetuned model checkpoint paths
-FINETUNED_ENCODER = str(Path("../tempData/singleStepEncoder").resolve())
-FINETUNED_BACKBONE = str(Path("../tempData/singleStepBackbone").resolve())
-FINETUNED_DECODER = str(Path("../tempData/singleStepDecoder").resolve())
+FINETUNED_ENCODER = str(Path("../tempData/twoStepEncoder").resolve())
+FINETUNED_BACKBONE = str(Path("../tempData/twoStepBackbone").resolve())
+FINETUNED_DECODER = str(Path("../tempData/twoStepDecoder").resolve())
 
 # Output paths
 METRICS_CSV_PATH = "all_metrics.csv"
-PLOT_OUTPUT_PATH = "outputs/differenceOneStepTrained.png"
+PLOT_OUTPUT_PATH = "outputs/differenceTwoStepTrained.png"
 
 # Model parameters
-STEPS = 1
+STEPS = 2
 RANDOM_SEED = 0
 TIME_INDEX = 2
 LEVEL_INDEX = 0
@@ -269,7 +269,7 @@ def main():
     # Run model predictions
     print("Running model predictions...")
     preds = [
-        pred.to(jax.devices("cpu")[0])
+        pred.to("cpu")
         for pred in rollout(model, batch, steps=STEPS, params=params, training=False, rng=rng)
     ]
     

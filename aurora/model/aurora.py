@@ -7,13 +7,8 @@ from typing import Dict, Optional, Tuple
 import jax
 import jax.numpy as jnp
 
-# import torch
 from flax import linen as nn
 
-# from huggingface_hub import hf_hub_download
-# from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-#     apply_activation_checkpointing,
-# )
 from aurora.batch import Batch
 from aurora.model.decoder import Perceiver3DDecoder
 from aurora.model.encoder import Perceiver3DEncoder
@@ -88,11 +83,11 @@ class Aurora(nn.Module):
             stabilise_level_agg=self.stabilise_level_agg,
         )
 
-        self.backbone = nn.remat(
-            Swin3DTransformerBackbone,
-            static_argnums=(1, 2, 3, 4, 5),
-        )(
-            # self.backbone = Swin3DTransformerBackbone(
+        # self.backbone = nn.remat(
+        #     Swin3DTransformerBackbone,
+        #     static_argnums=(1, 2, 3, 4, 5),
+        # )(
+        self.backbone = Swin3DTransformerBackbone(
             window_size_temp=self.window_size,
             encoder_depths=self.encoder_depths,
             encoder_num_heads=self.encoder_num_heads,
