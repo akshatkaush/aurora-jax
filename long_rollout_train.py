@@ -20,8 +20,8 @@ from flax.training import train_state
 from torch.utils.data import DataLoader
 
 from aurora import AuroraSmall, Batch, Metadata
-from aurora.IterableDataset import HresT0SequenceDataset
-from aurora.rolloutTrain import rollout_scan_stop_gradients
+from aurora.iterable_dataset import HresT0SequenceDataset
+from aurora.rollout_train import rollout_scan_stop_gradients
 from aurora.score import mae_loss_fn, weighted_rmse_batch
 
 

@@ -45,14 +45,14 @@ For detailed quantitative analysis, please refer to the CSV file `outputImagesAn
 │   └── aurora_rmse_mae - RMSE_MAE_errors_aurora.csv
 ├── config.py                       # Training configuration and hyperparameters
 ├── train.py                        # Standard training script
-├── longRolloutTrain.py             # Long rollout training with LoRA
+├── long_rollout_train.py           # Long rollout training with LoRA
 ├── trainReplayBuffer.py            # Training with replay buffer (WIP)
 ├── replay_buffer.py                # Replay buffer implementation
-├── weightConversion.py             # PyTorch to JAX weight conversion
-├── downloadERA5.py                 # ERA5 dataset download utility
-├── downloadHRES.py                 # HRES dataset download utility
-├── auroraTestERA5.py               # ERA5 forward pass evaluation
-├── auroraTestHRES.py               # HRES forward pass evaluation
+├── weight_conversion.py            # PyTorch to JAX weight conversion
+├── download_ERA5.py                # ERA5 dataset download utility
+├── download_HRES.py                # HRES dataset download utility
+├── aurora_test_ERA5.py            # ERA5 forward pass evaluation
+├── aurora_test_HRES.py            # HRES forward pass evaluation
 ├── checkpointEncoder/              # Pre-trained encoder weights
 ├── checkpointBackbone/             # Pre-trained backbone weights
 ├── checkpointDecoder/              # Pre-trained decoder weights
@@ -108,7 +108,7 @@ pip install microsoft-aurora
 
 ## Weight Conversion
 
-The `weightConversion.py` file provides utilities to convert pre-trained PyTorch Aurora weights to JAX format. This script:
+The `weight_conversion.py` file provides utilities to convert pre-trained PyTorch Aurora weights to JAX format. This script:
 
 - Loads PyTorch checkpoints from the original Aurora implementation
 - Converts parameter names and structures to match JAX/Flax conventions
@@ -117,7 +117,7 @@ The `weightConversion.py` file provides utilities to convert pre-trained PyTorch
 
 Usage:
 ```python
-python weightConversion.py --pytorch_ckpt_path /path/to/pytorch/checkpoint --output_path /path/to/jax/checkpoint
+python weight_conversion.py --pytorch_ckpt_path /path/to/pytorch/checkpoint --output_path /path/to/jax/checkpoint
 ```
 
 The conversion process ensures compatibility between the original PyTorch implementation and this JAX-based version.
@@ -128,7 +128,7 @@ The conversion process ensures compatibility between the original PyTorch implem
 
 **Download ERA5 Data:**
 ```bash
-python downloadERA5.py
+python download_ERA5.py
 ```
 
 This script uses the CDS (Climate Data Store) API to download ERA5 reanalysis data. You'll need to:
@@ -137,7 +137,7 @@ This script uses the CDS (Climate Data Store) API to download ERA5 reanalysis da
 
 **Run Forward Pass:**
 ```bash
-python auroraTestERA5.py
+python aurora_test_ERA5.py
 ```
 
 This script performs forward pass evaluation on ERA5 data and generates prediction visualizations.
@@ -148,14 +148,14 @@ This script performs forward pass evaluation on ERA5 data and generates predicti
 
 **Download HRES Data:**
 ```bash
-python downloadHRES.py
+python download_HRES.py
 ```
 
 This script uses WeatherBench2 to download high-resolution ECMWF forecasts. HRES data provides higher spatial resolution compared to ERA5.
 
 **Run Forward Pass:**
 ```bash
-python auroraTestHRES.py
+python aurora_test_HRES.py
 ```
 
 **Note**: ERA5 can also be downloaded using WeatherBench2 as an alternative to the CDS API. Both methods are supported for flexibility.
@@ -222,10 +222,10 @@ DATASET_SAMPLING_PERIOD = 10
 
 ### Long Rollout Training
 
-The `longRolloutTrain.py` script provides advanced training with LoRA (Low-Rank Adaptation):
+The `long_rollout_train.py` script provides advanced training with LoRA (Low-Rank Adaptation):
 
 ```bash
-python longRolloutTrain.py \
+python long_rollout_train.py \
     --batch_size 1 \
     --learning_rate 5e-5 \
     --lora_learning_rate 1e-4 \

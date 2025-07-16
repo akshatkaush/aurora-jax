@@ -10,7 +10,7 @@ from jax.tree_util import tree_leaves
 from save_batches import save_batch_npz
 
 from aurora import AuroraSmall, rollout
-from aurora.IterableDataset import HresT0SequenceDataset
+from aurora.iterable_dataset import HresT0SequenceDataset
 from aurora.score import weighted_mae, weighted_rmse
 
 
@@ -38,11 +38,11 @@ METRICS_CSV_PATH = "all_metrics.csv"
 PLOT_OUTPUT_PATH = "outputs/differenceOneStepTrained.png"
 
 # Model parameters
-STEPS = 2
+STEPS = 1
 RANDOM_SEED = 0
 TIME_INDEX = 2
 LEVEL_INDEX = 0
-USE_FINETUNED_MODEL = False  # Set to True to use finetuned model checkpoints
+USE_FINETUNED_MODEL = True  # Set to True to use finetuned model checkpoints
 
 
 # =============================================================================
@@ -131,7 +131,7 @@ def plot_all_vars(
         ax = axes[0, j]
         im = ax.imshow(
             data,
-            origin="upper",
+            origin="lower",
             extent=extent,
             aspect=aspect,
         )
@@ -148,7 +148,7 @@ def plot_all_vars(
         ax = axes[1, j]
         im = ax.imshow(
             data,
-            origin="upper",  # north is up
+            origin="lower",  # north is up
             extent=extent,
             aspect=aspect,
         )
@@ -275,8 +275,9 @@ def main():
     
     # Prepare ground truth batches
     print("Preparing ground truth batches...")
-    out_batch_list[0] = out_batch_list[0].crop(model.patch_size)
-    out_batch_list[1] = out_batch_list[1].crop(model.patch_size)
+    # Crop all available batches in out_batch_list dynamically
+    for i in range(len(out_batch_list)):
+        out_batch_list[i] = out_batch_list[i].crop(model.patch_size)
     
     # Move parameters to CPU for final processing
     params = jax.device_put(params, device=jax.devices("cpu")[0])

@@ -525,9 +525,6 @@ class PatchMerging3D(nn.Module):
 
     def __call__(self, x: jnp.ndarray, input_resolution: tuple[int, int, int]) -> jnp.ndarray:
         """Flax forward pass with JAX optimizations:
-        - Automatic parameter handling
-        - Functional transformations
-        - Immutable tensor operations
         """
         x = self._merge(x, input_resolution)
         x = self.norm(x)
@@ -551,18 +548,6 @@ class PatchSplitting3D(nn.Module):
     def _split(self, x, res, crop):
         C, H, W = res
         B, L, D = x.shape
-
-        # Convert values to JAX arrays for checkify
-        # checkify.check(
-        #     L == C * H * W,
-        #     "Token count mismatch: {} vs {}*{}*{}={}",
-        #     jnp.asarray(L),
-        #     jnp.asarray(C),
-        #     jnp.asarray(H),
-        #     jnp.asarray(W),
-        #     jnp.asarray(C * H * W),
-        # )
-        # checkify.check(D % 4 == 0, "Feature dimension {} not divisible by 4", jnp.asarray(D))
 
         x = x.reshape(B, C, H, W, 2, 2, D // 4)
         x = rearrange(x, "B C H W h w D -> B C (H h) (W w) D")  # (B, C, 2*H, 2*W, D/4)
@@ -685,10 +670,6 @@ class Swin3DTransformerBackbone(nn.Module):
 
         self.lead_time_expansion = FourierExpansion(1 / 60, 24 * 7 * 3)
 
-        # checkify.check(
-        #     sum(self.encoder_depths) == sum(self.decoder_depths),
-        #     "Sum of encoder and decoder depths must be equal",
-        # )
         dpr = jnp.linspace(0, self.drop_path_rate, sum(self.encoder_depths))
 
         self.encoder_layers = [
@@ -770,14 +751,6 @@ class Swin3DTransformerBackbone(nn.Module):
         training: bool,
         rng: Optional[jax.random.PRNGKey] = None,
     ) -> jnp.ndarray:
-        # checkify.check(
-        #     x.shape[1] == patch_res[0] * patch_res[1] * patch_res[2],
-        #     "Input shape does not match patch size.",
-        # )
-        # checkify.check(
-        #     patch_res[0] % self.window_size[0] == 0,
-        #     f"Patch height ({patch_res[0]}) must be divisible by ws[0] ({self.window_size[0]})",
-        # )
 
         all_enc_res, padded_outs = self.get_encoder_specs(patch_res)
 

@@ -10,7 +10,7 @@ import xarray as xr
 from jax.tree_util import tree_leaves
 
 from aurora import AuroraSmall, Batch, Metadata, rollout
-from aurora.score import mae_loss_fn, weighted_mae, weighted_rmse
+from aurora.score import weighted_mae, weighted_rmse
 
 
 # =============================================================================
@@ -42,23 +42,12 @@ STEPS = 2
 RANDOM_SEED = 0
 TIME_INDEX = 2
 LEVEL_INDEX = 0
-GAMMA = 0.5
 USE_FINETUNED_MODEL = True  # Set to True to use finetuned model checkpoints
 
 # Data selection parameters
 DATA_TIME_INDEX = 1  # Select this time index in the downloaded data
 
-# Surface weights for loss computation
-SURFACE_WEIGHTS = {"2t": 1.0, "10u": 1.0, "10v": 1.0, "msl": 1.0}
 
-# Atmospheric weights for loss computation (13 levels)
-ATMOSPHERIC_WEIGHTS = {
-    "t": jnp.ones(13) * 0.2,
-    "u": jnp.ones(13) * 0.2,
-    "v": jnp.ones(13) * 0.2,
-    "q": jnp.ones(13) * 0.2,
-    "z": jnp.ones(13) * 0.2,
-}
 
 
 # =============================================================================
@@ -410,11 +399,6 @@ def main():
     print("Creating ground truth batch...")
     batch_true = create_ground_truth_batch(static_vars_ds, surf_vars_ds, atmos_vars_ds)
     batch_true = batch_true.crop(model.patch_size)
-    
-    # Compute loss
-    print("Computing loss...")
-    loss = mae_loss_fn(preds[0], batch_true, SURFACE_WEIGHTS, ATMOSPHERIC_WEIGHTS, gamma=GAMMA)
-    print(f"Loss: {loss:.2f}")
     
     # Compute metrics
     print("Computing weighted RMSE and MAE...")

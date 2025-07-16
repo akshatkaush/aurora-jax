@@ -22,8 +22,8 @@ from jax.sharding import Mesh, PartitionSpec as P, NamedSharding
 from jax.experimental import mesh_utils
 
 from aurora import AuroraSmall, Batch
-from aurora.IterableDataset import HresT0SequenceDataset, collate_aurora_batches
-from aurora.rolloutTrain import rollout_scan
+from aurora.iterable_dataset import HresT0SequenceDataset, collate_aurora_batches
+from aurora.rollout_train import rollout_scan
 from aurora.score import mae_loss_fn, weighted_rmse_batch
 
 
