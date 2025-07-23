@@ -64,19 +64,19 @@ class PerceiverAttention(nn.Module):
         k = self.ln_k(k)
         q = self.ln_q(q)
 
-        # Reshape to separate heads: (B, L, inner_dim) -> (B, L, h, head_dim) -> (B, h, L, head_dim)
-        batch_size = q.shape[0]
-        q_reshaped = q.reshape(batch_size, -1, h, self.head_dim)
-        k_reshaped = k.reshape(batch_size, -1, h, self.head_dim)
-        v_reshaped = v.reshape(batch_size, -1, h, self.head_dim)
+        # Reshape to separate heads: (B, L, inner_dim) -> (B, h, L, head_dim)
+        h = self.num_heads
+        q = rearrange(q, "b l (h d) -> b h l d", h=h)
+        k = rearrange(k, "b l (h d) -> b h l d", h=h)
+        v = rearrange(v, "b l (h d) -> b h l d", h=h)
 
         out = nn.dot_product_attention(
-            q_reshaped,
-            k_reshaped,
-            v_reshaped,
+            q,
+            k,
+            v,
         )
-        # Reshape back: (B, h, L1, head_dim) -> (B, L1, h, head_dim) -> (B, L1, inner_dim)
-        out = rearrange(out, "B L1 H D -> B L1 (H D)")
+        # Reshape back: (B, h, L1, head_dim) -> (B, L1, inner_dim)
+        out = rearrange(out, "b h l d -> b l (h d)")
         return self.to_out(out)
 
 

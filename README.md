@@ -333,3 +333,16 @@ python trainReplayBuffer.py \
 - More efficient long rollout training
 
 **Note**: This feature is still being developed and may require additional tuning for optimal performance.
+
+## Citation
+
+If you use this code in your research, please cite:
+
+```bibtex
+@software{kaushal2025aurora,
+  author = {Akshat Kaushal and Paris Perdikaris},
+  title  = {Microsoft's Aurora in JAX},
+  year   = {2025},
+  url    = {https://github.com/akshatkaushal/aurora-jax},
+  note   = {Accessed: 2025-07-23 (adjust date as needed)}
+}

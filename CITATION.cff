@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as follows:"
+title: "Microsoft's Aurora in JAX"
+version: 1.0.0
+date-released: 2025-07-23
+url: https://github.com/akshatkaushal/aurora-jax
+repository-code: https://github.com/akshatkaushal/aurora-jax
+license: MIT
+abstract: "JAX implementation of Microsoft's Aurora weather forecasting model"
+authors:
+  - family-names: Kaushal
+    given-names: Akshat
+    orcid: https://orcid.org/0009-0008-5801-4380
+  - family-names: Perdikaris
+    given-names: Paris
+    orcid: https://orcid.org/0000-0002-2816-3229
