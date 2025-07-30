@@ -142,8 +142,6 @@ python aurora_test_ERA5.py
 
 This script performs forward pass evaluation on ERA5 data and generates prediction visualizations.
 
-![ERA5 Forward Pass Results](output_images_and_results/era5_forward_pass_example.png)
-
 ### HRES Dataset
 
 **Download HRES Data:**
