@@ -337,10 +337,12 @@ python trainReplayBuffer.py \
 If you use this code in your research, please cite:
 
 ```bibtex
-@software{kaushal2025aurora,
-  author = {Akshat Kaushal and Paris Perdikaris},
-  title  = {Microsoft's Aurora in JAX},
-  year   = {2025},
-  url    = {https://github.com/akshatkaushal/aurora-jax},
-  note   = {Accessed: 2025-07-23 (adjust date as needed)}
+@software{Kaushal_Microsoft_s_Aurora_in_2025,
+author = {Kaushal, Akshat and Perdikaris, Paris},
+license = {MIT},
+month = jul,
+title = {{Microsoft's Aurora in JAX}},
+url = {https://github.com/akshatkaushal/aurora-jax},
+version = {1.0.0},
+year = {2025}
 }
