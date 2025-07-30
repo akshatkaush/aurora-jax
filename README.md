@@ -10,7 +10,7 @@ This implementation provides:
 - **Weight conversion utilities** to convert PyTorch weights to JAX format
 - **Forward pass evaluation** capabilities for both ERA5 and HRES datasets
 
-![Aurora Architecture](outputImagesAndResults/aurora-architecture.png)
+![Aurora Architecture](output_images_and_results/aurora-architecture.png)
 
 ## Overview
 
@@ -27,12 +27,12 @@ This implementation focuses on:
 The following images show comparisons between Aurora predictions and ground truth for different variable types:
 
 **Atmospheric Variables Comparison:**
-![Atmospheric Variables Comparison](outputImagesAndResults/compare_atm_truth_row.png)
+![Atmospheric Variables Comparison](output_images_and_results/compare_atm_truth_row.png)
 
 **Surface Variables Comparison:**
-![Surface Variables Comparison](outputImagesAndResults/compare_surf_truth_row.png)
+![Surface Variables Comparison](output_images_and_results/compare_surf_truth_row.png)
 
-For detailed quantitative analysis, please refer to the CSV file `outputImagesAndResults/aurora_rmse_mae - RMSE_MAE_errors_aurora.csv` which contains RMSE and MAE error metrics for different variables and time steps. **Note: These values are not normalized.**
+For detailed quantitative analysis, please refer to the CSV file `output_images_and_results/aurora_rmse_mae - RMSE_MAE_errors_aurora.csv` which contains RMSE and MAE error metrics for different variables and time steps. **Note: These values are not normalized.**
 
 ## Code Structure
 
@@ -142,7 +142,7 @@ python aurora_test_ERA5.py
 
 This script performs forward pass evaluation on ERA5 data and generates prediction visualizations.
 
-![ERA5 Forward Pass Results](outputImagesAndResults/era5_forward_pass_example.png)
+![ERA5 Forward Pass Results](output_images_and_results/era5_forward_pass_example.png)
 
 ### HRES Dataset
 
