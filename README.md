@@ -342,7 +342,7 @@ author = {Kaushal, Akshat and Perdikaris, Paris},
 license = {MIT},
 month = jul,
 title = {{Microsoft's Aurora in JAX}},
-url = {https://github.com/akshatkaushal/aurora-jax},
+url = {https://github.com/akshatkaush/aurora-jax},
 version = {1.0.0},
 year = {2025}
 }
