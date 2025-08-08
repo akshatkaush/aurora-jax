@@ -1,0 +1,10 @@
+# Exclude notebooks and site content from language stats
+*.ipynb linguist-documentation
+article.html linguist-documentation
+aurora-article-site/** linguist-documentation
+
+# Generated or binary assets (not counted)
+output_images_and_results/** linguist-generated
+*.png binary
+*.jpg binary
+*.jpeg binary
