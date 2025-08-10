@@ -396,7 +396,7 @@
 
     <h2 id="abstract">Abstract</h2>
 
-    <p>In May 2025, Microsoft's Aurora paper was published in Nature as "A Foundation Model of the Atmosphere," introducing a 1.3 billion-parameter forecasting model. Although the paper detailed the architecture, the authors did not release end-to-end training code or optimal GPU acceleration strategies. Here, for the first time, we bridge that gap by making public the full training configuration and complete training code for every component described in the original paper. In our implementation, the most challenging aspect was handling the huge model size and vast volume of data, which consumed significant memory, and writing the code in an optimized manner was of utmost importance. To demonstrate this, we used AuroraSmall, a lighter variant provided by the authors and optimized for experimental efficiency, translated its architecture into JAX, implemented a comprehensive training loop, and benchmarked model performance. While AuroraSmall significantly reduces resource demands, its forward-pass times still trail the original PyTorch implementation, highlighting opportunities for further optimization with advanced JAX features. All code and training scripts are now publicly available for the community to use and extend. This article focuses on the code implementation and performance comparison between JAX and PyTorch, rather than revisiting the model details or theoretical rationale already covered by the authors and prior studies.</p>
+    <p>In May 2025, Microsoft's Aurora paper was published in Nature as "<a href="https://doi.org/10.1038/s41586-025-09005-y" target="_blank">A Foundation Model of the Atmosphere,</a>" introducing a 1.3 billion-parameter forecasting model. Although the paper detailed the architecture, the authors did not release end-to-end training code or optimal GPU acceleration strategies. Here, for the first time, we bridge that gap by making public the full training configuration and complete training code for every component described in the original paper. In our implementation, the most challenging aspect was handling the huge model size and vast volume of data, which consumed significant memory, and writing the code in an optimized manner was of utmost importance. To demonstrate this, we used AuroraSmall, a lighter variant provided by the authors and optimized for experimental efficiency, translated its architecture into JAX, implemented a comprehensive training loop, and benchmarked model performance. While AuroraSmall significantly reduces resource demands, its forward-pass times of the JAX implementation still trail the original PyTorch implementation, highlighting opportunities for further optimization with advanced JAX features. All code and training scripts are now publicly available for the community to use and extend. This article focuses on the code implementation and performance comparison between JAX and PyTorch, rather than revisiting the model details or theoretical rationale already covered by the authors and prior studies.</p>
 
     <h2 id="what-is-aurora">What is Aurora?</h2>
 
@@ -494,11 +494,16 @@
 def train_step(state, inBatch: Batch, target_batches: List[Batch], 
                rng, steps: int, average_loss: bool):</code></pre>
 
-    <p>The <code>static_argnums = (4, 5)</code> tells JAX that <code>steps</code> and <code>average_loss</code> are compile-time constants. This was critical because:</p>
+    <p>The <code>static_argnums = (4, 5)</code> tells JAX that <code>steps</code> and <code>average_loss</code> are compile-time constants. Marking an argument as static means JAX will compile a separate version of the function for each distinct value of that argument; changing it triggers recompilation. Note that <code>static_argnames</code> is also available and can be more readable when referring to named arguments. This was critical because:</p>
 
     <p><strong>1. Loop unrolling:</strong> JAX can unroll loops when the step count is static, leading to better optimization.</p>
     <p><strong>2. Conditional compilation:</strong> The <code>average_loss</code> boolean enables different code paths to be optimized separately.</p>
     <p><strong>3. Memory planning:</strong> Static step counts allow JAX to pre-allocate memory more efficiently.</p>
+
+    <h4>JITing the gradient vs. JITing the step</h4>
+    <p>In our setup, we JIT-compiled the full <code>train_step</code> and computed gradients inside it via <code>jax.value_and_grad</code> — effectively JITing the step, with the backward pass included in the same compiled computation.</p>
+    <p>An alternative worth trying is to JIT the gradient function itself, for example: <code>grad_fn = jax.jit(jax.value_and_grad(loss_fn))</code>, and then call it from a lightweight step. Depending on shapes and optimizer logic, this can reduce per-iteration overhead but may increase initial compile time.</p>
+    <p>We have not yet benchmarked compile latency vs. steady-state step time for these variants; running a small ablation comparing (1) JITting the whole step vs. (2) JITting the gradient directly is a good next step.</p>
 
     <p><strong>Model Component JIT in Architecture:</strong></p>
 
@@ -516,6 +521,7 @@ self.backbone = nn.remat(
 
     <h3>Gradient Checkpointing: Finding the Right Balance</h3>
 
+    <p>Gradient checkpointing reduces peak memory by discarding selected activations during the forward pass and recomputing them during backpropagation, trading extra compute for lower memory usage.</p>
     <p><strong>Strategic Placement:</strong></p>
 
     <pre><code class="language-python"># Main model components - coarse-grained checkpointing
@@ -558,6 +564,7 @@ self.decoder = nn.remat(Perceiver3DDecoder, static_argnums=(2, 3, 4, 5))(...)</c
     <p><strong>3. Memory vs. Speed trade-off:</strong> More checkpointing reduces memory but increases training time due to recomputation.</p>
 
     <p><strong>Our Solution:</strong> We implemented a hierarchical approach where components (<code>encoder</code>, <code>decoder</code>) are checkpointed at the top level, and the backbone is checkpointed at the granular level at each different layer. This provided the best balance of memory efficiency and computational overhead.</p>
+    <p>For comparison, an alternative we used internally is to checkpoint at every invocation of <code>BasicLayer3D</code>. This finer-grained strategy further reduces activation memory but increases recomputation overhead accordingly.</p>
 
     <h3>PyTree Compatibility: The Batch.py Conversion Challenge</h3>
 
@@ -574,6 +581,24 @@ self.decoder = nn.remat(Perceiver3DDecoder, static_argnums=(2, 3, 4, 5))(...)</c
 
     <img src="https://cdn-images-1.medium.com/max/1440/1*vpb90LkUx1WMwzjVzrUWSw.png" alt="Atmospheric variables comparison (Truth, PyTorch, JAX, Differences)">
     <div class="image-caption">Atmospheric variables comparison (Truth, PyTorch, JAX, Differences)</div>
+
+    <h3>Numerical Differences: Floating-Point Order and Precision</h3>
+    
+    <p>While validating correctness across the PyTorch and JAX implementations, we observed small and systematic discrepancies that can grow through continuous operations. The root cause was a different <em>order of mathematically equivalent operations</em>. In floating-point arithmetic, addition and multiplication are not associative, so <code>(x + y) + z</code> may differ from <code>x + (y + z)</code>. Kernel fusion and parallel reductions can legally reorder computations, and different backends (PyTorch CUDA kernels vs. JAX/XLA fused kernels) often pick different evaluation orders.</p>
+    
+    <p><strong>Practical implications:</strong></p>
+    <ul>
+      <li><strong>Precision matters:</strong> Keep both frameworks on the same dtype. If higher precision helps, enable 64-bit in JAX and match in PyTorch:
+        <pre><code class="language-python">import jax
+jax.config.update('jax_enable_x64', True)
+</code></pre>
+      </li>
+      <li><strong>Selective mixed precision:</strong> In our code, numerically sensitive subroutines are executed in <code>float64</code> (upcast → compute → downcast), while the remainder stays in <code>float32</code> to balance accuracy and performance. Wherever feasible, we chose the highest practical precision on critical paths.</li>
+      <li><strong>Order matters:</strong> Align the sequence of operations in critical paths (e.g., normalization, residual adds, reductions). Prefer numerically stable formulations (e.g., pairwise/tree reductions; compensated/Kahan summation for large sums).</li>
+      <li><strong>Reductions and fusion:</strong> Parallel reductions and kernel fusion can change accumulation order; expect tiny differences that may compound over long pipelines.</li>
+    </ul>
+    
+    <p><strong>Further reading:</strong> <a href="https://en.wikipedia.org/wiki/Associative_property" target="_blank">Associativity in floating point</a>, <a href="https://jax.readthedocs.io/en/latest/faq.html#how-do-i-enable-64-bit-floating-point" target="_blank">JAX 64‑bit precision</a>, <a href="https://dl.acm.org/doi/10.1145/103162.103163" target="_blank">Goldberg (1991): What Every CS Should Know About Floating‑Point Arithmetic</a>.</p>
 
     <h2 id="experiments">Experimental Setup and Results</h2>
 
@@ -606,6 +631,7 @@ self.decoder = nn.remat(Perceiver3DDecoder, static_argnums=(2, 3, 4, 5))(...)</c
     <p><strong>Model and Training:</strong> The same AuroraSmall model configuration and pre-trained weights were used as in the baseline. The key difference lies in the training loop. We performed a two-step rollout (<code>rollout_steps=2</code>). In this process, the model first predicts the state at time <code>t+1</code> based on the input at time <code>t</code>. Then, this prediction is fed back into the model as input to generate a prediction for time <code>t+2</code>.</p>
 
     <p><strong>Loss Calculation and Backpropagation:</strong> To encourage the model to make accurate predictions at each step of the rollout, the loss was computed as the average of the losses from both prediction steps. That is, the loss for the prediction at <code>t+1</code> and the loss for the prediction at <code>t+2</code> were calculated independently against their respective ground truth states and then averaged. This combined loss was then used to compute the gradients, which were backpropagated through the entire two-step computation to update the model's weights.</p>
+    <p><strong>Gradient flow</strong> We propagate gradients end-to-end through both rollout steps (<em>no</em> <code>stop_gradient</code> in Setup 2). Consequently, errors at <code>t+2</code> backpropagate through the <code>t+1</code> prediction and into all contributing parameters.</p>
 
     <p><strong>Training Result:</strong> The graph below highlights the model's performance during the two-step fine-tuning process. Compared to our baseline single-step training, we notice the training loss declines steadily but more gradually, reflecting the increased complexity of predicting two consecutive future states. The validation loss follows a similar trend, reinforcing the idea that the model successfully learns meaningful patterns that generalize to new data even in this more challenging task. It's encouraging to see the model's ability to maintain stable improvement across both steps of the rollout, suggesting it is effectively capturing longer-term dependencies between sequential predictions.</p>
 
