@@ -16,6 +16,54 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   
+  <!-- Google Analytics 4 (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-F1WV216PT0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    
+    // Configure Google Analytics
+    gtag('config', 'G-F1WV216PT0', {
+      // Enable enhanced measurement for better tracking
+      page_title: 'Microsoft\'s Aurora in JAX',
+      page_location: window.location.href,
+      content_group1: 'Technical Article',
+      content_group2: 'Machine Learning',
+      // Track scroll depth
+      enhanced_measurement: {
+        scrolls: true,
+        outbound_clicks: true,
+        site_search: false,
+        video_engagement: false,
+        file_downloads: true
+      }
+    });
+    
+    // Custom event tracking functions
+    function trackSectionView(sectionName) {
+      gtag('event', 'section_view', {
+        'section_name': sectionName,
+        'page_title': 'Microsoft\'s Aurora in JAX'
+      });
+    }
+    
+    function trackLinkClick(linkText, linkUrl) {
+      gtag('event', 'link_click', {
+        'link_text': linkText,
+        'link_url': linkUrl,
+        'page_title': 'Microsoft\'s Aurora in JAX'
+      });
+    }
+    
+    function trackCodeCopy(codeSection) {
+      gtag('event', 'code_copy', {
+        'code_section': codeSection,
+        'page_title': 'Microsoft\'s Aurora in JAX'
+      });
+    }
+  </script>
+  
   <style>
     /* Additional Alembic-specific styles */
     body {
@@ -756,6 +804,105 @@ jax.config.update('jax_enable_x64', True)
   </article>
 
 </main>
+
+  <!-- Enhanced Analytics Tracking Script -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Track section visibility using Intersection Observer
+      const sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id;
+            if (sectionId) {
+              trackSectionView(sectionId);
+            }
+          }
+        });
+      }, {
+        threshold: 0.5 // Trigger when 50% of section is visible
+      });
+
+      // Observe all sections with IDs
+      const sections = document.querySelectorAll('h2[id], h3[id], h4[id]');
+      sections.forEach(section => {
+        sectionObserver.observe(section);
+      });
+
+      // Track external link clicks
+      const externalLinks = document.querySelectorAll('a[href^="http"]');
+      externalLinks.forEach(link => {
+        link.addEventListener('click', function() {
+          const linkText = this.textContent.trim();
+          const linkUrl = this.href;
+          trackLinkClick(linkText, linkUrl);
+        });
+      });
+
+      // Track email link clicks
+      const emailLinks = document.querySelectorAll('a[href^="mailto"]');
+      emailLinks.forEach(link => {
+        link.addEventListener('click', function() {
+          gtag('event', 'email_click', {
+            'email_address': this.href.replace('mailto:', ''),
+            'page_title': 'Microsoft\'s Aurora in JAX'
+          });
+        });
+      });
+
+      // Track time spent on page
+      let startTime = Date.now();
+      let maxScrollDepth = 0;
+      
+      // Track scroll depth
+      window.addEventListener('scroll', function() {
+        const scrollPercent = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
+        if (scrollPercent > maxScrollDepth) {
+          maxScrollDepth = scrollPercent;
+        }
+      });
+
+      // Send time on page and max scroll depth when user leaves
+      window.addEventListener('beforeunload', function() {
+        const timeOnPage = Math.round((Date.now() - startTime) / 1000);
+        
+        gtag('event', 'time_on_page', {
+          'time_seconds': timeOnPage,
+          'max_scroll_depth': maxScrollDepth,
+          'page_title': 'Microsoft\'s Aurora in JAX'
+        });
+      });
+
+      // Track code block interactions (if you want to add copy buttons later)
+      const codeBlocks = document.querySelectorAll('pre code');
+      codeBlocks.forEach((codeBlock, index) => {
+        codeBlock.addEventListener('click', function() {
+          trackCodeCopy(`code_block_${index + 1}`);
+        });
+      });
+
+      // Track image views
+      const images = document.querySelectorAll('img');
+      const imageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const imageSrc = entry.target.src;
+            const imageAlt = entry.target.alt || 'Unknown image';
+            gtag('event', 'image_view', {
+              'image_name': imageAlt,
+              'image_url': imageSrc,
+              'page_title': 'Microsoft\'s Aurora in JAX'
+            });
+          }
+        });
+      }, {
+        threshold: 0.5
+      });
+
+      images.forEach(img => {
+        imageObserver.observe(img);
+      });
+    });
+  </script>
 
 </body>
 </html> 
