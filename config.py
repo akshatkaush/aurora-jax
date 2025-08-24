@@ -1,6 +1,5 @@
 import jax.numpy as jnp
 
-# --- Original Config Values (from your configs.py) ---
 surf_weights = {
     "2t": 3.5,
     "10u": 0.77,
@@ -34,7 +33,6 @@ FULL_LEAD_TIME_LIMIT_DAYS = 10
 INITIAL_LEAD_TIME_LIMIT_STEPS = INITIAL_LEAD_TIME_LIMIT_DAYS * (24 // HOURS_PER_STEP)
 FULL_LEAD_TIME_LIMIT_STEPS = FULL_LEAD_TIME_LIMIT_DAYS * (24 // HOURS_PER_STEP)
 
-# --- Paths (MUST BE VERIFIED FOR YOUR SYSTEM) ---
 ZARR_PATH = "/home1/a/akaush/aurora/hresDataset/hres_t0_2021-2022mid.zarr"
 STATIC_DATA_PATH = "/home1/a/akaush/aurora/datasetEnviousScratch/static.nc"
 
@@ -43,4 +41,4 @@ SECONDS_PER_HOUR = 3600
 TIMESTEP_DURATION_SECONDS = HOURS_PER_STEP * SECONDS_PER_HOUR
 
 # --- Model Specific (Optional placeholder) ---
-# MODEL_PATCH_SIZE = 64 # If you have a global patch size, define it here
+# MODEL_PATCH_SIZE = 64

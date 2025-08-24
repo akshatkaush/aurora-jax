@@ -8,7 +8,6 @@ STATIC_ZARR = "gs://weatherbench2/datasets/static/hres_t0_static.zarr"
 OUT_MAIN = "hresDataset/hres_t0_2021-2022mid.zarr"
 OUT_STATIC = "hresDataset/hres_t0_static.zarr"
 
-# exactly the vars your code maps:
 SURF_VARS = [
     "2m_temperature",  # → "2t"
     "10m_u_component_of_wind",  # → "10u"
