@@ -1,3 +1,8 @@
+# Article
+
+Read the accompanying article for methodology, design notes, and results:
+[Read the article](article/index.html)
+
 # Introduction
 
 This repository contains a comprehensive implementation of the Aurora weather forecasting model with JAX/Flax, inspired by the original [Microsoft Aurora](https://github.com/microsoft/aurora) repository. Aurora is a state-of-the-art foundation model for Earth system forecasting that can predict atmospheric variables, air pollution, and ocean waves.
@@ -11,11 +16,6 @@ This implementation provides:
 - **Forward pass evaluation** capabilities for both ERA5 and HRES datasets
 
 ![Aurora Architecture](output_images_and_results/aurora-architecture.png)
-
-## Article
-
-Read the accompanying article for methodology, design notes, and results:
-[Read the article](article/index.html)
 
 ## Overview
 
