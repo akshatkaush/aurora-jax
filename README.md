@@ -66,15 +66,15 @@ The following files are not tracked in the repository but should be present:
 
 - **Static data file**: Should be placed at the path specified in `config.py` (currently `/home1/a/akaush/aurora/datasetEnviousScratch/static.nc`)
 - **ERA5/HRES datasets**: Will be downloaded automatically using the provided scripts
-- **Model checkpoints**: Should be downloaded from the Google Drive link below
+- **Model checkpoints**: Should be downloaded from the Hugging Face repository below
 
 ## Model Weights Download
 
-Download the pre-trained JAX model weights from this Google Drive link:
+Download the pre-trained JAX model weights from this Hugging Face repository:
 
-**[Download Aurora JAX Weights](https://drive.google.com/drive/folders/1u3sZJ6TwaXg96GFOVOkgVdIg7KUZKRdw?usp=sharing)**
+**[Download Aurora JAX Weights](https://huggingface.co/akshatkaush/aurora-small-jax/tree/main)**
 
-The drive contains:
+The repository contains:
 - `checkpointEncoder/` - Encoder weights in JAX PyTree format
 - `checkpointBackbone/` - Backbone weights in JAX PyTree format  
 - `checkpointDecoder/` - Decoder weights in JAX PyTree format
