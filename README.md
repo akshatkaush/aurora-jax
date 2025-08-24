@@ -12,6 +12,11 @@ This implementation provides:
 
 ![Aurora Architecture](output_images_and_results/aurora-architecture.png)
 
+## Article
+
+Read the accompanying article for methodology, design notes, and results:
+[Read the article](article/index.html)
+
 ## Overview
 
 Aurora is a foundation model for Earth system forecasting that can predict multiple atmospheric and oceanic variables. The model uses a transformer-based architecture with specialized encoders and decoders for different variable types (surface, atmospheric, and static variables).
