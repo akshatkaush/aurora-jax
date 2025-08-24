@@ -1,7 +1,7 @@
 # Article
 
 Read the accompanying article for methodology, design notes, and results:
-[Read the article](article/index.html)
+[Read the article](https://akshatkaush.github.io/aurora-jax/article/index.html)
 
 # Introduction
 
