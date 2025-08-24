@@ -9,6 +9,15 @@
   <title>Microsoft's Aurora in JAX - Aurora in JAX</title>
   <meta name="description" content="A step-by-step guide to translating Aurora's architecture, crafting a JAX training loop, and benchmarking results.">
   
+  <!-- Google Scholar Meta Tags for Citation Tracking -->
+  <meta name="citation_title" content="Microsoft's Aurora in JAX">
+  <meta name="citation_author" content="Kaushal, Akshat">
+  <meta name="citation_author" content="Perdikaris, Paris">
+  <meta name="citation_publication_date" content="2025/08/23">
+  <meta name="citation_technical_report_institution" content="University of Pennsylvania">
+  <meta name="citation_doi" content="10.5281/zenodo.16936899">
+  <meta name="citation_language" content="en">
+  
   <!-- Load Alembic theme styles from GitHub Pages -->
   <link rel="stylesheet" href="https://alembic.darn.es/assets/styles.css">
   
@@ -80,7 +89,7 @@
     }
     
     .main {
-      padding: 0.5rem 0;
+      padding: 5rem 0 0.5rem 0;
     }
     
     .article {
@@ -224,10 +233,23 @@
       display: flex;
       align-items: center;
       margin: 0.5rem auto 0.6rem auto;
-      padding: 0 0 0.5rem 0;
-      border-bottom: 1px solid #e6e6e6;
+      padding: 0;
       max-width: 800px;
       gap: 0.4rem;
+    }
+
+    .read-time {
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 400;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-style: italic;
+      color: #6b7570;
+      letter-spacing: 0.3px;
+      margin: 0.8rem auto 0.8rem auto;
+      max-width: 800px;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e6e6e6;
     }
 
     .author-image {
@@ -348,6 +370,17 @@
       .author-info {
         text-align: center;
       }
+
+      .read-time {
+        font-size: 0.65rem;
+        font-weight: 400;
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-style: italic;
+        letter-spacing: 0.2px;
+        margin: 0.5rem auto 0.5rem auto;
+        padding-bottom: 0.3rem;
+        text-align: left;
+      }
       
       pre {
         font-size: 0.75rem;
@@ -430,6 +463,8 @@
       </div>
     </div>
 
+    <div class="read-time">26 min read</div>
+
     <p><strong>A step-by-step guide to translating Aurora's architecture, crafting a JAX training loop, and benchmarking results.</strong></p>
 
     <h2 id="citation">Citation</h2>
@@ -438,6 +473,7 @@
 
     <pre><code>@software{Kaushal_Microsoft_s_Aurora_in_2025,
 author = {Kaushal, Akshat and Perdikaris, Paris},
+doi = {10.5281/zenodo.16936899},
 license = {MIT},
 month = jul,
 title = {{Microsoft's Aurora in JAX}},

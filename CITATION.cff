@@ -2,15 +2,39 @@ cff-version: 1.2.0
 message: "If you use this work, please cite it as follows:"
 title: "Microsoft's Aurora in JAX"
 version: 1.0.0
-date-released: 2025-07-23
+date-released: 2025-01-23
 url: https://github.com/akshatkaush/aurora-jax
 repository-code: https://github.com/akshatkaush/aurora-jax
+doi: 10.5281/zenodo.16936899
 license: MIT
-abstract: "JAX implementation of Microsoft's Aurora weather forecasting model"
+abstract: "JAX implementation of Microsoft's Aurora weather forecasting model with comprehensive training utilities, multi-GPU support, and evaluation capabilities for ERA5 and HRES datasets."
+keywords:
+  - "weather forecasting"
+  - "machine learning"
+  - "JAX"
+  - "deep learning"
+  - "Aurora"
+  - "atmospheric modeling"
+  - "foundation models"
+  - "transformer"
+type: software
 authors:
   - family-names: Kaushal
     given-names: Akshat
     orcid: https://orcid.org/0009-0008-5801-4380
+    affiliation: "University of Pennsylvania"
   - family-names: Perdikaris
     given-names: Paris
     orcid: https://orcid.org/0000-0002-2816-3229
+    affiliation: "University of Pennsylvania"
+references:
+  - type: article
+    title: "Aurora: A Foundation Model of the Atmosphere"
+    authors:
+      - family-names: Bodnar
+        given-names: Cristian
+      - family-names: Bruinsma
+        given-names: Wessel P.
+    journal: "arXiv preprint"
+    year: 2024
+    url: "https://arxiv.org/abs/2405.13063"

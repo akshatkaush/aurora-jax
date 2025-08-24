@@ -339,6 +339,7 @@ If you use this code in your research, please cite:
 ```bibtex
 @software{Kaushal_Microsoft_s_Aurora_in_2025,
 author = {Kaushal, Akshat and Perdikaris, Paris},
+doi = {10.5281/zenodo.16936899},
 license = {MIT},
 month = jul,
 title = {{Microsoft's Aurora in JAX}},

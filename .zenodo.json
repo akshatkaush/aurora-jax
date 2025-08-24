@@ -1,0 +1,50 @@
+{
+  "title": "Microsoft's Aurora in JAX",
+  "description": "JAX implementation of Microsoft's Aurora weather forecasting model with comprehensive training utilities, multi-GPU support, and evaluation capabilities for ERA5 and HRES datasets.",
+  "creators": [
+    {
+      "name": "Kaushal, Akshat",
+      "affiliation": "University of Pennsylvania",
+      "orcid": "0009-0008-5801-4380"
+    },
+    {
+      "name": "Perdikaris, Paris", 
+      "affiliation": "University of Pennsylvania",
+      "orcid": "0000-0002-2816-3229"
+    }
+  ],
+  "keywords": [
+    "weather forecasting",
+    "machine learning", 
+    "JAX",
+    "deep learning",
+    "Aurora",
+    "atmospheric modeling",
+    "foundation models",
+    "transformer",
+    "neural networks",
+    "climate science"
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "language": "eng",
+  "doi": "10.5281/zenodo.16936899",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/akshatkaush/aurora-jax",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "https://arxiv.org/abs/2405.13063",
+      "relation": "cites",
+      "resource_type": "publication-preprint"
+    }
+  ],
+  "communities": [
+    {
+      "identifier": "zenodo"
+    }
+  ]
+}
